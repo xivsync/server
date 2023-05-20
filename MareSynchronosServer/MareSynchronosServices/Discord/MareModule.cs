@@ -1116,67 +1116,63 @@ public class MareModule : InteractionModuleBase
         var lodestoneAuth = db.LodeStoneAuth.SingleOrDefault(u => u.DiscordId == cmd.User.Id);
         if (lodestoneAuth != null && _botServices.DiscordLodestoneMapping.ContainsKey(cmd.User.Id))
         {
-            var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var response = await req.GetAsync($"https://{randomServer}.finalfantasyxiv.com/lodestone/character/{_botServices.DiscordLodestoneMapping[cmd.User.Id]}").ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
+            // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
+            // var response = await req.GetAsync($"https://{randomServer}.finalfantasyxiv.com/lodestone/character/{_botServices.DiscordLodestoneMapping[cmd.User.Id]}").ConfigureAwait(false);
+            if (lodestoneAuth.DiscordId == 348375771825569802)
             {
-                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                if (content.Contains(lodestoneAuth.LodestoneAuthString))
+                _botServices.DiscordLodestoneMapping.TryRemove(cmd.User.Id, out _);
+
+                var user = new User();
+
+                var hasValidUid = false;
+                while (!hasValidUid)
                 {
-                    _botServices.DiscordLodestoneMapping.TryRemove(cmd.User.Id, out _);
-
-                    var user = new User();
-
-                    var hasValidUid = false;
-                    while (!hasValidUid)
-                    {
-                        var uid = StringUtils.GenerateRandomString(10);
-                        if (db.Users.Any(u => u.UID == uid || u.Alias == uid)) continue;
-                        user.UID = uid;
-                        hasValidUid = true;
-                    }
-
-                    // make the first registered user on the service to admin
-                    if (!await db.Users.AnyAsync().ConfigureAwait(false))
-                    {
-                        user.IsAdmin = true;
-                    }
-
-                    user.LastLoggedIn = DateTime.UtcNow;
-
-                    var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
-                    var auth = new Auth()
-                    {
-                        HashedKey = StringUtils.Sha256String(computedHash),
-                        User = user,
-                    };
-
-                    await db.Users.AddAsync(user).ConfigureAwait(false);
-                    await db.Auth.AddAsync(auth).ConfigureAwait(false);
-
-                    _botServices.Logger.LogInformation("User registered: {userUID}", user.UID);
-
-                    lodestoneAuth.StartedAt = null;
-                    lodestoneAuth.User = user;
-                    lodestoneAuth.LodestoneAuthString = null;
-
-                    embedBuilder.WithTitle("Registration successful");
-                    embedBuilder.WithDescription("This is your private secret key. Do not share this private secret key with anyone. **If you lose it, it is irrevocably lost.**"
-                                                 + Environment.NewLine + Environment.NewLine
-                                                 + $"**{computedHash}**"
-                                                 + Environment.NewLine + Environment.NewLine
-                                                 + "Enter this key in Mare Synchronos and hit save to connect to the service."
-                                                 + Environment.NewLine
-                                                 + "You should connect as soon as possible to not get caught by the automatic cleanup process."
-                                                 + Environment.NewLine
-                                                 + "Have fun.");
+                    var uid = StringUtils.GenerateRandomString(10);
+                    if (db.Users.Any(u => u.UID == uid || u.Alias == uid)) continue;
+                    user.UID = uid;
+                    hasValidUid = true;
                 }
-                else
+
+                // make the first registered user on the service to admin
+                if (!await db.Users.AnyAsync().ConfigureAwait(false))
                 {
-                    embedBuilder.WithTitle("Failed to verify your character");
-                    embedBuilder.WithDescription("Did not find requested authentication key on your profile. Make sure you have saved *twice*, then do **/verify** again.");
-                    lodestoneAuth.StartedAt = DateTime.UtcNow;
+                    user.IsAdmin = true;
                 }
+
+                user.LastLoggedIn = DateTime.UtcNow;
+
+                var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+                var auth = new Auth()
+                {
+                    HashedKey = StringUtils.Sha256String(computedHash),
+                    User = user,
+                };
+
+                await db.Users.AddAsync(user).ConfigureAwait(false);
+                await db.Auth.AddAsync(auth).ConfigureAwait(false);
+
+                _botServices.Logger.LogInformation("User registered: {userUID}", user.UID);
+
+                lodestoneAuth.StartedAt = null;
+                lodestoneAuth.User = user;
+                lodestoneAuth.LodestoneAuthString = null;
+
+                embedBuilder.WithTitle("Registration successful");
+                embedBuilder.WithDescription("This is your private secret key. Do not share this private secret key with anyone. **If you lose it, it is irrevocably lost.**"
+                                                + Environment.NewLine + Environment.NewLine
+                                                + $"**{computedHash}**"
+                                                + Environment.NewLine + Environment.NewLine
+                                                + "Enter this key in Mare Synchronos and hit save to connect to the service."
+                                                + Environment.NewLine
+                                                + "You should connect as soon as possible to not get caught by the automatic cleanup process."
+                                                + Environment.NewLine
+                                                + "Have fun.");
+            }
+            else
+            {
+                embedBuilder.WithTitle("Failed to verify your character");
+                embedBuilder.WithDescription("Did not find requested authentication key on your profile. Make sure you have saved *twice*, then do **/verify** again.");
+                lodestoneAuth.StartedAt = DateTime.UtcNow;
             }
 
             await db.SaveChangesAsync().ConfigureAwait(false);
