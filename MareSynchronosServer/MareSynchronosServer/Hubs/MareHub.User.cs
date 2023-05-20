@@ -1,4 +1,6 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using MareSynchronos.API.Data;
 using MareSynchronos.API.Data.Enum;
 using MareSynchronos.API.Data.Extensions;
@@ -21,7 +23,7 @@ public partial class MareHub
     {
         _logger.LogCallInfo(MareHubLogger.Args(dto));
 
-        // don't allow adding yourself or nothing
+        // don't allow adding nothing
         var uid = dto.User.UID.Trim();
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(dto.User.UID)) return;
 
@@ -30,6 +32,12 @@ public partial class MareHub
         if (otherUser == null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot pair with {dto.User.UID}, UID does not exist").ConfigureAwait(false);
+            return;
+        }
+
+        if (string.Equals(otherUser.UID, UserUID, StringComparison.Ordinal))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"My god you can't pair with yourself why would you do that please stop").ConfigureAwait(false);
             return;
         }
 
@@ -137,8 +145,10 @@ public partial class MareHub
                 IsSynced = otherEntry != null,
                 DisableOwnAnimations = userToOther.DisableAnimations,
                 DisableOwnSounds = userToOther.DisableSounds,
+                DisableOwnVFX = userToOther.DisableVFX,
                 DisableOtherAnimations = otherEntry == null ? false : otherEntry.DisableAnimations,
-                DisableOtherSounds = otherEntry == null ? false : otherEntry.DisableSounds
+                DisableOtherSounds = otherEntry == null ? false : otherEntry.DisableSounds,
+                DisableOtherVFX = otherEntry == null ? false : otherEntry.DisableVFX
             };
 
         var results = await query.AsNoTracking().ToListAsync().ConfigureAwait(false);
@@ -149,11 +159,13 @@ public partial class MareHub
             ownPerm.SetPaused(c.IsPaused);
             ownPerm.SetDisableAnimations(c.DisableOwnAnimations);
             ownPerm.SetDisableSounds(c.DisableOwnSounds);
+            ownPerm.SetDisableVFX(c.DisableOwnVFX);
             var otherPerm = UserPermissions.NoneSet;
             otherPerm.SetPaired(c.IsSynced);
             otherPerm.SetPaused(c.OtherIsPaused);
             otherPerm.SetDisableAnimations(c.DisableOtherAnimations);
             otherPerm.SetDisableSounds(c.DisableOtherSounds);
+            otherPerm.SetDisableVFX(c.DisableOtherVFX);
             return new UserPairDto(new(c.OtherUserUID, c.Alias), ownPerm, otherPerm);
         }).ToList();
     }
@@ -183,6 +195,30 @@ public partial class MareHub
     public async Task UserPushData(UserCharaDataMessageDto dto)
     {
         _logger.LogCallInfo(MareHubLogger.Args(dto.CharaData.FileReplacements.Count));
+
+        // check for honorific containing . and /
+        try
+        {
+            var honorificJson = Encoding.Default.GetString(Convert.FromBase64String(dto.CharaData.HonorificData));
+            var deserialized = JsonSerializer.Deserialize<JsonElement>(honorificJson);
+            if (deserialized.TryGetProperty("Title", out var honorificTitle))
+            {
+                var title = honorificTitle.GetString().Normalize(NormalizationForm.FormKD);
+                if (UrlRegex().IsMatch(title))
+                {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your data was not pushed: The usage of URLs the Honorific titles is prohibited. Remove them to be able to continue to push data.").ConfigureAwait(false);
+                    throw new HubException("Invalid data provided, Honorific title invalid: " + title);
+                }
+            }
+        }
+        catch (HubException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // swallow
+        }
 
         bool hadInvalidData = false;
         List<string> invalidGamePaths = new();
@@ -345,6 +381,7 @@ public partial class MareHub
         pair.IsPaused = dto.Permissions.IsPaused();
         pair.DisableAnimations = dto.Permissions.IsDisableAnimations();
         pair.DisableSounds = dto.Permissions.IsDisableSounds();
+        pair.DisableVFX = dto.Permissions.IsDisableVFX();
         _dbContext.Update(pair);
         await _dbContext.SaveChangesAsync().ConfigureAwait(false);
 
@@ -467,6 +504,9 @@ public partial class MareHub
     [GeneratedRegex(@"^[A-Z0-9]{40}$", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.ECMAScript)]
     private static partial Regex HashRegex();
 
+    [GeneratedRegex("^[-a-zA-Z0-9@:%._\\+~#=]{1,256}[\\.,][a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$")]
+    private static partial Regex UrlRegex();
+
     private ClientPair OppositeEntry(string otherUID) =>
-                                _dbContext.ClientPairs.AsNoTracking().SingleOrDefault(w => w.User.UID == otherUID && w.OtherUser.UID == UserUID);
+                                    _dbContext.ClientPairs.AsNoTracking().SingleOrDefault(w => w.User.UID == otherUID && w.OtherUser.UID == UserUID);
 }
