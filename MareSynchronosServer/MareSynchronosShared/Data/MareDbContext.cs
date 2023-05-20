@@ -16,7 +16,7 @@ public class MareDbContext : DbContext
             return;
         }
 
-        optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=mare;Username=postgres", builder =>
+        optionsBuilder.UseNpgsql("Host=localhost;Port=5432;Database=mare;Username=mare", builder =>
         {
             builder.MigrationsHistoryTable("_efmigrationshistory", "public");
             builder.MigrationsAssembly("MareSynchronosShared");
