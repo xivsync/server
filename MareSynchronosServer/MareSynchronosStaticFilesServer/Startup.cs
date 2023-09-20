@@ -53,6 +53,8 @@ public class Startup
 
         services.AddSingleton(m => new MareMetrics(m.GetService<ILogger<MareMetrics>>(), new List<string>
         {
+            MetricsAPI.CounterFileRequests,
+            MetricsAPI.CounterFileRequestSize
         }, new List<string>
         {
             MetricsAPI.GaugeFilesTotalSize,
@@ -63,6 +65,9 @@ public class Startup
             MetricsAPI.GaugeFilesUniquePastHourSize,
             MetricsAPI.GaugeCurrentDownloads,
             MetricsAPI.GaugeDownloadQueue,
+            MetricsAPI.GaugeQueueFree,
+            MetricsAPI.GaugeQueueInactive,
+            MetricsAPI.GaugeQueueActive,
         }));
         services.AddSingleton<CachedFileProvider>();
         services.AddSingleton<FileStatisticsService>();

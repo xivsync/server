@@ -1,4 +1,5 @@
 ﻿using MareSynchronos.API.Routes;
+using MareSynchronosShared.Data;
 using MareSynchronosStaticFilesServer.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,12 +10,14 @@ public class RequestController : ControllerBase
 {
     private readonly CachedFileProvider _cachedFileProvider;
     private readonly RequestQueueService _requestQueue;
+    private readonly MareDbContext _mareDbContext;
     private static readonly SemaphoreSlim _parallelRequestSemaphore = new(500);
 
-    public RequestController(ILogger<RequestController> logger, CachedFileProvider cachedFileProvider, RequestQueueService requestQueue) : base(logger)
+    public RequestController(ILogger<RequestController> logger, CachedFileProvider cachedFileProvider, RequestQueueService requestQueue, MareDbContext mareDbContext) : base(logger)
     {
         _cachedFileProvider = cachedFileProvider;
         _requestQueue = requestQueue;
+        _mareDbContext = mareDbContext;
     }
 
     [HttpGet]
@@ -36,7 +39,7 @@ public class RequestController : ControllerBase
 
     [HttpPost]
     [Route(MareFiles.Request_Enqueue)]
-    public async Task<IActionResult> PreRequestFilesAsync([FromBody] List<string> files)
+    public async Task<IActionResult> PreRequestFilesAsync([FromBody] IEnumerable<string> files)
     {
         try
         {
@@ -47,43 +50,26 @@ public class RequestController : ControllerBase
                 _cachedFileProvider.DownloadFileWhenRequired(file);
             }
 
-            return Ok();
-        }
-        catch (OperationCanceledException) { return BadRequest(); }
-        finally
-        {
-            _parallelRequestSemaphore.Release();
-        }
-    }
+            Guid g = Guid.NewGuid();
+            await _requestQueue.EnqueueUser(new(g, MareUser, files.ToList()), _mareDbContext);
 
-    [HttpGet]
-    [Route(MareFiles.Request_RequestFile)]
-    public async Task<IActionResult> RequestFile(string file)
-    {
-        Guid g = Guid.NewGuid();
-
-        try
-        {
-            await _parallelRequestSemaphore.WaitAsync(HttpContext.RequestAborted);
-            _cachedFileProvider.DownloadFileWhenRequired(file);
             return Ok(g);
         }
         catch (OperationCanceledException) { return BadRequest(); }
         finally
         {
             _parallelRequestSemaphore.Release();
-            await _requestQueue.EnqueueUser(new(g, MareUser, file));
         }
     }
 
     [HttpGet]
     [Route(MareFiles.Request_Check)]
-    public async Task<IActionResult> CheckQueueAsync(Guid requestId, string file)
+    public async Task<IActionResult> CheckQueueAsync(Guid requestId, [FromBody] IEnumerable<string> files)
     {
         try
         {
-            if (!_requestQueue.StillEnqueued(requestId, MareUser))
-                await _requestQueue.EnqueueUser(new(requestId, MareUser, file));
+            if (!await _requestQueue.StillEnqueued(requestId, MareUser, _mareDbContext))
+                await _requestQueue.EnqueueUser(new(requestId, MareUser, files.ToList()), _mareDbContext);
             return Ok();
         }
         catch (OperationCanceledException) { return BadRequest(); }

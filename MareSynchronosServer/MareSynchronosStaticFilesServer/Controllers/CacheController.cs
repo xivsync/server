@@ -11,17 +11,19 @@ public class CacheController : ControllerBase
     private readonly RequestFileStreamResultFactory _requestFileStreamResultFactory;
     private readonly CachedFileProvider _cachedFileProvider;
     private readonly RequestQueueService _requestQueue;
+    private readonly FileStatisticsService _fileStatisticsService;
 
     public CacheController(ILogger<CacheController> logger, RequestFileStreamResultFactory requestFileStreamResultFactory,
-        CachedFileProvider cachedFileProvider, RequestQueueService requestQueue) : base(logger)
+        CachedFileProvider cachedFileProvider, RequestQueueService requestQueue, FileStatisticsService fileStatisticsService) : base(logger)
     {
         _requestFileStreamResultFactory = requestFileStreamResultFactory;
         _cachedFileProvider = cachedFileProvider;
         _requestQueue = requestQueue;
+        _fileStatisticsService = fileStatisticsService;
     }
 
     [HttpGet(MareFiles.Cache_Get)]
-    public async Task<IActionResult> GetFile(Guid requestId)
+    public async Task<IActionResult> GetFiles(Guid requestId)
     {
         _logger.LogDebug($"GetFile:{MareUser}:{requestId}");
 
@@ -29,13 +31,23 @@ public class CacheController : ControllerBase
 
         _requestQueue.ActivateRequest(requestId);
 
-        var fs = await _cachedFileProvider.GetAndDownloadFileStream(request.FileId);
-        if (fs == null)
+        Response.ContentType = "application/octet-stream";
+
+        long requestSize = 0;
+        List<BlockFileDataSubstream> substreams = new();
+
+        foreach (var file in request.FileIds)
         {
-            _requestQueue.FinishRequest(requestId);
-            return NotFound();
+            var fs = await _cachedFileProvider.GetAndDownloadFileStream(file);
+            if (fs == null) continue;
+
+            substreams.Add(new(fs));
+
+            requestSize += fs.Length;
         }
 
-        return _requestFileStreamResultFactory.Create(requestId, fs);
+        _fileStatisticsService.LogRequest(requestSize);
+
+        return _requestFileStreamResultFactory.Create(requestId, new BlockFileDataStream(substreams.ToArray()));
     }
 }
