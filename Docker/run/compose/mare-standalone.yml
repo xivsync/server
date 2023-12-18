@@ -48,6 +48,7 @@ services:
     image: darkarchon/mare-synchronos-services:latest
     restart: on-failure
     environment:
+      MareSynchronos__SZJCookie: "${DEV_MARE_SZJCOOKIE}"
       MareSynchronos__DiscordBotToken: "${DEV_MARE_DISCORDTOKEN}"
       MareSynchronos__DiscordChannelForMessages: "${DEV_MARE_DISCORDCHANNEL}"
       MareSynchronos__DiscordChannelForReports: "${DEV_MARE_DISCORDCHANNEL}"

@@ -16,15 +16,15 @@ public partial class MareWizardModule
 
         EmbedBuilder eb = new();
         eb.WithColor(Color.Blue);
-        eb.WithTitle("Start Registration");
-        eb.WithDescription("Here you can start the registration process with the Mare Synchronos server of this Discord." + Environment.NewLine + Environment.NewLine
-            + "- Have your Lodestone URL ready (i.e. https://eu.finalfantasyxiv.com/lodestone/character/XXXXXXXXX)" + Environment.NewLine
-            + "  - The registration requires you to modify your Lodestone profile with a generated code for verification" + Environment.NewLine
-            + "  - You need to have a paid FFXIV account or someone who can assist you with registration if you can't edit your own Lodestone" + Environment.NewLine
-            + "- Do not use this on mobile because you will need to be able to copy the generated secret key" + Environment.NewLine);
+        eb.WithTitle("开始注册");
+        eb.WithDescription("在这里，您可以开始使用此 Discord 的 Mare Synchronos 服务器进行注册。" + Environment.NewLine + Environment.NewLine
+            + "- 准备好您的石之家 UID (例如 10000000)" + Environment.NewLine
+            + "  - 注册需要您使用生成的验证码修改您的石之家个人资料" + Environment.NewLine
+            + "  - 如果您无法编辑自己的个人资料，您需要拥有付费的 FF14 帐户或可以协助您注册的人" + Environment.NewLine
+            + "- 不要在移动设备上使用此功能，因为您需要能够复制生成的密钥" + Environment.NewLine);
         ComponentBuilder cb = new();
         AddHome(cb);
-        cb.WithButton("Start Registration", "wizard-register-start", ButtonStyle.Primary, emote: new Emoji("🌒"));
+        cb.WithButton("开始注册", "wizard-register-start", ButtonStyle.Primary, emote: new Emoji("🌒"));
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -56,9 +56,9 @@ public partial class MareWizardModule
         eb.WithColor(Color.Purple);
         var success = await HandleRegisterModalAsync(eb, lodestoneModal).ConfigureAwait(false);
         ComponentBuilder cb = new();
-        cb.WithButton("Cancel", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
-        if (success.Item1) cb.WithButton("Verify", "wizard-register-verify:" + success.Item2, ButtonStyle.Primary, emote: new Emoji("✅"));
-        else cb.WithButton("Try again", "wizard-register-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
+        cb.WithButton("取消", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
+        if (success.Item1) cb.WithButton("验证", "wizard-register-verify:" + success.Item2, ButtonStyle.Primary, emote: new Emoji("✅"));
+        else cb.WithButton("重试", "wizard-register-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
         await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -72,12 +72,12 @@ public partial class MareWizardModule
         EmbedBuilder eb = new();
         ComponentBuilder cb = new();
         eb.WithColor(Color.Purple);
-        cb.WithButton("Cancel", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
-        cb.WithButton("Check", "wizard-register-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
-        eb.WithTitle("Verification Pending");
-        eb.WithDescription("Please wait until the bot verifies your registration." + Environment.NewLine
-            + "Press \"Check\" to check if the verification has been already processed" + Environment.NewLine + Environment.NewLine
-            + "__This will not advance automatically, you need to press \"Check\".__");
+        cb.WithButton("取消", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
+        cb.WithButton("检查", "wizard-register-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
+        eb.WithTitle("待验证");
+        eb.WithDescription("请等待机器人验证您的注册。" + Environment.NewLine
+            + "按“检查”检查验证是否已处理" + Environment.NewLine + Environment.NewLine
+            + "__这一步骤不会自动前进，您需要按下“检查”按钮。__");
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -95,17 +95,17 @@ public partial class MareWizardModule
             if (stillEnqueued)
             {
                 eb.WithColor(Color.Gold);
-                eb.WithTitle("Your verification is still pending");
-                eb.WithDescription("Please try again and click Check in a few seconds");
-                cb.WithButton("Cancel", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
-                cb.WithButton("Check", "wizard-register-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
+                eb.WithTitle("您的验证仍在等待中");
+                eb.WithDescription("请重试并在几秒钟后单击“检查”");
+                cb.WithButton("取消", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
+                cb.WithButton("检查", "wizard-register-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
             }
             else
             {
                 eb.WithColor(Color.Red);
-                eb.WithTitle("Something went wrong");
-                eb.WithDescription("Your verification was processed but did not arrive properly. Please try to start the registration from the start.");
-                cb.WithButton("Restart", "wizard-register", ButtonStyle.Primary, emote: new Emoji("🔁"));
+                eb.WithTitle("发生了错误");
+                eb.WithDescription("您的验证已处理，但未正确完成。 请尝试从头开始注册。");
+                cb.WithButton("重试", "wizard-register", ButtonStyle.Primary, emote: new Emoji("🔁"));
             }
         }
         else
@@ -115,28 +115,28 @@ public partial class MareWizardModule
                 eb.WithColor(Color.Green);
                 using var db = _services.CreateScope().ServiceProvider.GetRequiredService<MareDbContext>();
                 var (uid, key) = await HandleAddUser(db).ConfigureAwait(false);
-                eb.WithTitle($"Registration successful, your UID: {uid}");
-                eb.WithDescription("This is your private secret key. Do not share this private secret key with anyone. **If you lose it, it is irrevocably lost.**"
+                eb.WithTitle($"注册成功，您的UID：{uid}");
+                eb.WithDescription("这是您的私人密钥。 不要与任何人共享此私人密钥。 **如果你失去了它，它就永远失去了。**"
                                              + Environment.NewLine + Environment.NewLine
                                              + $"**{key}**"
                                              + Environment.NewLine + Environment.NewLine
-                                             + "Enter this key in Mare Synchronos and hit save to connect to the service."
+                                             + "在 Mare Synchronos 中输入此密钥并点击“保存”以连接到该服务。"
                                              + Environment.NewLine
-                                             + "You should connect as soon as possible to not get caught by the automatic cleanup process."
+                                             + "您应该尽快连接，以免被自动清理。"
                                              + Environment.NewLine
-                                             + "Have fun.");
+                                             + "玩得开心。");
                 AddHome(cb);
             }
             else
             {
                 eb.WithColor(Color.Gold);
-                eb.WithTitle("Failed to verify registration");
-                eb.WithDescription("The bot was not able to find the required verification code on your Lodestone profile." + Environment.NewLine + Environment.NewLine
-                    + "Please restart your verification process, make sure to save your profile _twice_ for it to be properly saved." + Environment.NewLine + Environment.NewLine
-                    + "The code the bot is looking for is" + Environment.NewLine + Environment.NewLine
+                eb.WithTitle("验证注册失败");
+                eb.WithDescription("机器人无法在您的石之家个人资料中找到所需的验证码。" + Environment.NewLine + Environment.NewLine
+                    + "请重新启动您的验证过程，并确保 _提交您的个人资料_ 以便正确保存。" + Environment.NewLine + Environment.NewLine
+                    + "机器人正在寻找的代码是" + Environment.NewLine + Environment.NewLine
                     + "**" + verificationCode + "**");
-                cb.WithButton("Cancel", "wizard-register", emote: new Emoji("❌"));
-                cb.WithButton("Retry", "wizard-register-verify:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("🔁"));
+                cb.WithButton("取消", "wizard-register", emote: new Emoji("❌"));
+                cb.WithButton("重试", "wizard-register-verify:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("🔁"));
             }
         }
 
@@ -148,9 +148,9 @@ public partial class MareWizardModule
         var lodestoneId = ParseCharacterIdFromLodestoneUrl(arg.LodestoneUrl);
         if (lodestoneId == null)
         {
-            embed.WithTitle("Invalid Lodestone URL");
-            embed.WithDescription("The lodestone URL was not valid. It should have following format:" + Environment.NewLine
-                + "https://eu.finalfantasyxiv.com/lodestone/character/YOUR_LODESTONE_ID/");
+            embed.WithTitle("不正确的 UID");
+            embed.WithDescription("石之家的 UID 格式错误，它应当长成这样:" + Environment.NewLine
+                + "10000000");
             return (false, string.Empty);
         }
 
@@ -171,24 +171,24 @@ public partial class MareWizardModule
         if (db.LodeStoneAuth.Any(a => a.HashedLodestoneId == hashedLodestoneId))
         {
             // character already in db
-            embed.WithDescription("This lodestone character already exists in the Database. If you want to attach this character to your current Discord account use relink.");
+            embed.WithDescription("该石之家角色已存在于数据库中。 如果您想将此角色附加到您当前的 Discord 帐户，请使用重新链接。");
             return (false, string.Empty);
         }
 
         string lodestoneAuth = await GenerateLodestoneAuth(Context.User.Id, hashedLodestoneId, db).ConfigureAwait(false);
         // check if lodestone id is already in db
-        embed.WithTitle("Authorize your character");
-        embed.WithDescription("Add following key to your character profile at https://na.finalfantasyxiv.com/lodestone/my/setting/profile/"
-                              + Environment.NewLine + Environment.NewLine
-                              + $"**{lodestoneAuth}**"
-                              + Environment.NewLine + Environment.NewLine
-                              + $"**! THIS IS NOT THE KEY YOU HAVE TO ENTER IN MARE !**"
-                              + Environment.NewLine + Environment.NewLine
-                              + "Once added and saved, use the button below to Verify and finish registration and receive a secret key to use for Mare Synchronos."
-                              + Environment.NewLine
-                              + "__You can delete the entry from your profile after verification.__"
-                              + Environment.NewLine + Environment.NewLine
-                              + "The verification will expire in approximately 15 minutes. If you fail to verify the registration will be invalidated and you have to register again.");
+        embed.WithTitle("验证您的角色");
+        embed.WithDescription("将以下密钥添加到您的角色个人简介中：https://ff14risingstones.web.sdo.com/pc/index.html#/me/settings/main"
+                            + Environment.NewLine + Environment.NewLine
+                            + $"**{lodestoneAuth}**"
+                            + Environment.NewLine + Environment.NewLine
+                            + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
+                            + Environment.NewLine + Environment.NewLine
+                            + "添加并保存后，使用下面的按钮验证并完成注册并接收用于 Mare Synchronos 的密钥。"
+                            + Environment.NewLine
+                            + "__验证后，您可以从您的个人简介中删除该条目。__"
+                            + Environment.NewLine + Environment.NewLine
+                            + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
         _botServices.DiscordLodestoneMapping[Context.User.Id] = lodestoneId.ToString();
 
         return (true, lodestoneAuth);
@@ -197,12 +197,22 @@ public partial class MareWizardModule
     private async Task HandleVerifyAsync(ulong userid, string authString)
     {
         var req = new HttpClient();
+        var cookie = GetSZJCookie();
+        if (!string.IsNullOrEmpty(cookie))
+        {
+            req.DefaultRequestHeaders.Add("Cookie", cookie);
+            _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
+        }
+        else
+        {
+            _botServices.Logger.LogError("Cannot get cookie for bot service");
+        }
 
         _botServices.DiscordVerifiedUsers.Remove(userid, out _);
         if (_botServices.DiscordLodestoneMapping.ContainsKey(userid))
         {
-            var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var response = await req.GetAsync($"https://{randomServer}.finalfantasyxiv.com/lodestone/character/{_botServices.DiscordLodestoneMapping[userid]}").ConfigureAwait(false);
+            // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
+            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordLodestoneMapping[userid]}&page=1&limit=10").ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

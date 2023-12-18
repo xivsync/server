@@ -235,13 +235,14 @@ public partial class MareWizardModule : InteractionModuleBase
 
     private int? ParseCharacterIdFromLodestoneUrl(string lodestoneUrl)
     {
-        var regex = new Regex(@"https:\/\/(na|eu|de|fr|jp)\.finalfantasyxiv\.com\/lodestone\/character\/\d+");
+        // var regex = new Regex(@"https:\/\/(na|eu|de|fr|jp)\.finalfantasyxiv\.com\/lodestone\/character\/\d+");
+        var regex = new Regex(@"^\d{8,}$");
         var matches = regex.Match(lodestoneUrl);
         var isLodestoneUrl = matches.Success;
-        if (!isLodestoneUrl || matches.Groups.Count < 1) return null;
+        if (!isLodestoneUrl) return null;
 
         lodestoneUrl = matches.Groups[0].ToString();
-        var stringId = lodestoneUrl.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
+        var stringId = lodestoneUrl;
         if (!int.TryParse(stringId, out int lodestoneId))
         {
             return null;
@@ -249,4 +250,10 @@ public partial class MareWizardModule : InteractionModuleBase
 
         return lodestoneId;
     }
+
+    private string GetSZJCookie()
+    {
+        return _mareServicesConfiguration.GetValueOrDefault(nameof(ServicesConfiguration.SZJCookie), string.Empty);
+    }
+
 }

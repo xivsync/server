@@ -16,10 +16,10 @@ namespace MareSynchronosServices.Discord;
 
 public class LodestoneModal : IModal
 {
-    public string Title => "Verify with Lodestone";
+    public string Title => "通过石之家认证";
 
-    [InputLabel("Enter the Lodestone URL of your Character")]
-    [ModalTextInput("lodestone_url", TextInputStyle.Short, "https://*.finalfantasyxiv.com/lodestone/character/<CHARACTERID>/")]
+    [InputLabel("输入您角色的石之家 UID")]
+    [ModalTextInput("lodestone_url", TextInputStyle.Short, "10000000")]
     public string LodestoneUrl { get; set; }
 }
 
@@ -48,8 +48,8 @@ public class MareModule : InteractionModuleBase
         _connectionMultiplexer = connectionMultiplexer;
     }
 
-    [SlashCommand("register", "Starts the registration process for the Mare Synchronos server of this Discord")]
-    public async Task Register([Summary("overwrite", "Overwrites your old account")] bool overwrite = false)
+    [SlashCommand("register", "启动此 Discord 的 Mare Synchronos 服务器的注册过程")]
+    public async Task Register([Summary("overwrite", "覆盖您的旧帐户")] bool overwrite = false)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}:{params}",
             Context.Interaction.User.Id, nameof(Register),
@@ -74,7 +74,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("createsecondaryuid", "Creates a new Secret Key to be used for alts")]
+    [SlashCommand("createsecondaryuid", "创建一个用于小号的新的密钥")]
     public async Task AddSecondary()
     {
         try
@@ -92,9 +92,9 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("setvanityuid", "Sets your Vanity UID.")]
-    public async Task SetVanityUid([Summary("vanity_uid", "Desired Vanity UID")] string vanityUid,
-        [Summary("secondary_uid", "Will set the vanity UID for a secondary UID")] string? secondaryUid = null)
+    [SlashCommand("setvanityuid", "设置您的个性 UID.")]
+    public async Task SetVanityUid([Summary("vanity_uid", "个性 UID")] string vanityUid,
+        [Summary("secondary_uid", "将设置辅助的个性 UID")] string? secondaryUid = null)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}:{params}",
             Context.Interaction.User.Id, nameof(SetVanityUid),
@@ -118,10 +118,10 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("setsyncshellvanityid", "Sets a Vanity GID for a Syncshell")]
+    [SlashCommand("setsyncshellvanityid", "设置同步贝的个性 GID")]
     public async Task SetSyncshellVanityId(
-        [Summary("syncshell_id", "Syncshell ID")] string syncshellId,
-        [Summary("vanity_syncshell_id", "Desired Vanity Syncshell ID")] string vanityId)
+        [Summary("syncshell_id", "同步贝 ID")] string syncshellId,
+        [Summary("vanity_syncshell_id", "个性 ID")] string vanityId)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}:{params}",
             Context.Interaction.User.Id, nameof(SetSyncshellVanityId),
@@ -145,7 +145,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("verify", "Finishes the registration process for the Mare Synchronos server of this Discord")]
+    [SlashCommand("verify", "完成此 Discord 的 Mare Synchronos 服务器的注册过程")]
     public async Task Verify()
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
@@ -155,14 +155,14 @@ public class MareModule : InteractionModuleBase
             EmbedBuilder eb = new();
             if (_botServices.VerificationQueue.Any(u => u.Key == Context.User.Id))
             {
-                eb.WithTitle("Already queued for verfication");
-                eb.WithDescription("You are already queued for verification. Please wait.");
+                eb.WithTitle("已经排队等待验证");
+                eb.WithDescription("您已经在排队等待验证。 请稍等。");
                 await RespondAsync(embeds: new[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
             }
             else if (!_botServices.DiscordLodestoneMapping.ContainsKey(Context.User.Id))
             {
-                eb.WithTitle("Cannot verify registration");
-                eb.WithDescription("You need to **/register** first before you can **/verify**" + Environment.NewLine + "If your registration got stuck for some reason, use **/register overwrite:true**");
+                eb.WithTitle("无法验证注册");
+                eb.WithDescription("您需要先**/register**，然后才能**/verify**" + Environment.NewLine + "如果您的注册由于某种原因被卡住，请使用 **/register overwrite:true**");
                 await RespondAsync(embeds: new[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
             }
             else
@@ -181,7 +181,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("verify_relink", "Finishes the relink process for your user on the Mare Synchronos server of this Discord")]
+    [SlashCommand("verify_relink", "在此 Discord 的 Mare Synchronos 服务器上完成您的用户的重新链接过程")]
     public async Task VerifyRelink()
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
@@ -192,14 +192,14 @@ public class MareModule : InteractionModuleBase
             EmbedBuilder eb = new();
             if (_botServices.VerificationQueue.Any(u => u.Key == Context.User.Id))
             {
-                eb.WithTitle("Already queued for verfication");
-                eb.WithDescription("You are already queued for verification. Please wait.");
+                eb.WithTitle("已经排队等待验证");
+                eb.WithDescription("您已经在排队等待验证。 请稍等。");
                 await RespondAsync(embeds: new[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
             }
             else if (!_botServices.DiscordRelinkLodestoneMapping.ContainsKey(Context.User.Id))
             {
-                eb.WithTitle("Cannot verify relink");
-                eb.WithDescription("You need to **/relink** first before you can **/verify_relink**");
+                eb.WithTitle("无法验证重新链接");
+                eb.WithDescription("您需要先**/relink**，然后才能**/verify_relink**");
                 await RespondAsync(embeds: new[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
             }
             else
@@ -219,8 +219,8 @@ public class MareModule : InteractionModuleBase
 
     }
 
-    [SlashCommand("recover", "Allows you to recover your account by generating a new secret key")]
-    public async Task Recover([Summary("secondary_uid", "(Optional) Your secondary UID")] string? secondaryUid = null)
+    [SlashCommand("recover", "允许您通过生成新的密钥来恢复您的帐户")]
+    public async Task Recover([Summary("secondary_uid", "（可选）您的辅助 UID")] string? secondaryUid = null)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
             Context.Interaction.User.Id, nameof(Recover));
@@ -228,10 +228,10 @@ public class MareModule : InteractionModuleBase
         await RespondWithModalAsync<LodestoneModal>($"recover_modal:{secondaryUid ?? "-1"}").ConfigureAwait(false);
     }
 
-    [SlashCommand("userinfo", "Shows you your user information")]
-    public async Task UserInfo([Summary("secondary_uid", "(Optional) Your secondary UID")] string? secondaryUid = null,
-        [Summary("discord_user", "ADMIN ONLY: Discord User to check for")] IUser? discordUser = null,
-        [Summary("uid", "ADMIN ONLY: UID to check for")] string? uid = null)
+    [SlashCommand("userinfo", "显示您的用户信息")]
+    public async Task UserInfo([Summary("secondary_uid", "（可选）您的辅助 UID")] string? secondaryUid = null,
+        [Summary("discord_user", "仅限管理员：要检查的 Discord 用户")] IUser? discordUser = null,
+        [Summary("uid", "仅限管理员：要检查的 UID")] string? uid = null)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
             Context.Interaction.User.Id, nameof(UserInfo));
@@ -254,7 +254,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("relink", "Allows you to link a new Discord account to an existing Mare account")]
+    [SlashCommand("relink", "允许您将新的 Discord 帐户链接到现有的 Mare 帐户")]
     public async Task Relink()
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
@@ -262,8 +262,8 @@ public class MareModule : InteractionModuleBase
         await RespondWithModalAsync<LodestoneModal>("relink_modal").ConfigureAwait(false);
     }
 
-    [SlashCommand("useradd", "ADMIN ONLY: add a user unconditionally to the Database")]
-    public async Task UserAdd([Summary("desired_uid", "Desired UID")] string desiredUid)
+    [SlashCommand("useradd", "仅限管理员：无条件添加用户到数据库")]
+    public async Task UserAdd([Summary("desired_uid", "用户 UID")] string desiredUid)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}:{params}",
             Context.Interaction.User.Id, nameof(UserAdd),
@@ -285,7 +285,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("message", "ADMIN ONLY: sends a message to clients")]
+    [SlashCommand("message", "仅管理员：向客户端发送消息")]
     public async Task SendMessageToClients([Summary("message", "Message to send")] string message,
         [Summary("severity", "Severity of the message")] MareSynchronosShared.Protos.MessageType messageType = MareSynchronosShared.Protos.MessageType.Info,
         [Summary("uid", "User ID to the person to send the message to")] string? uid = null)
@@ -633,9 +633,9 @@ public class MareModule : InteractionModuleBase
         var lodestoneId = ParseCharacterIdFromLodestoneUrl(arg.LodestoneUrl);
         if (lodestoneId == null)
         {
-            embed.WithTitle("Invalid Lodestone URL");
-            embed.WithDescription("The lodestone URL was not valid. It should have following format:" + Environment.NewLine
-                + "https://eu.finalfantasyxiv.com/lodestone/character/YOUR_LODESTONE_ID/");
+            embed.WithTitle("无效的石之家 UID");
+            embed.WithDescription("石之家 UID 无效。 它应该具有以下格式：" + Environment.NewLine
+                + "10000000");
         }
         else
         {
@@ -718,9 +718,9 @@ public class MareModule : InteractionModuleBase
         var lodestoneId = ParseCharacterIdFromLodestoneUrl(arg.LodestoneUrl);
         if (lodestoneId == null)
         {
-            embed.WithTitle("Invalid Lodestone URL");
-            embed.WithDescription("The lodestone URL was not valid. It should have following format:" + Environment.NewLine
-                + "https://eu.finalfantasyxiv.com/lodestone/character/YOUR_LODESTONE_ID/");
+            embed.WithTitle("无效的石之家 UID");
+            embed.WithDescription("石之家 UID 无效。 它应该具有以下格式：" + Environment.NewLine
+                + "10000000");
         }
         else
         {
@@ -753,18 +753,19 @@ public class MareModule : InteractionModuleBase
             {
                 string lodestoneAuth = await GenerateLodestoneAuth(userid, hashedLodestoneId, db).ConfigureAwait(false);
                 // check if lodestone id is already in db
-                embed.WithTitle("Authorize your character");
-                embed.WithDescription("Add following key to your character profile at https://na.finalfantasyxiv.com/lodestone/my/setting/profile/"
-                                      + Environment.NewLine + Environment.NewLine
-                                      + $"**{lodestoneAuth}**"
-                                      + Environment.NewLine + Environment.NewLine
-                                      + $"**! THIS IS NOT THE KEY YOU HAVE TO ENTER IN MARE !**"
-                                      + Environment.NewLine + Environment.NewLine
-                                      + "Once added and saved, use command **/verify** to finish registration and receive a secret key to use for Mare Synchronos."
-                                      + Environment.NewLine
-                                      + "__You can delete the entry from your profile after verification.__"
-                                      + Environment.NewLine + Environment.NewLine
-                                      + "The verification will expire in approximately 15 minutes. If you fail to **/verify** the registration will be invalidated and you have to **/register** again.");
+                embed.WithTitle("验证您的角色");
+                embed.WithDescription("将以下密钥添加到您的角色个人简介中：https://ff14risingstones.web.sdo.com/pc/index.html#/me/settings/main"
+                                    + Environment.NewLine + Environment.NewLine
+                                    + $"**{lodestoneAuth}**"
+                                    + Environment.NewLine + Environment.NewLine
+                                    + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
+                                    + Environment.NewLine + Environment.NewLine
+                                    + "添加并保存后，使用命令 **/verify** 完成注册并接收用于 Mare Synchronos 的密钥。"
+                                    + Environment.NewLine
+                                    + "__验证后，您可以从您的个人简介中删除该条目。__"
+                                    + Environment.NewLine + Environment.NewLine
+                                    + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
+
                 _botServices.DiscordLodestoneMapping[userid] = lodestoneId.ToString();
             }
         }
@@ -779,9 +780,9 @@ public class MareModule : InteractionModuleBase
         var lodestoneId = ParseCharacterIdFromLodestoneUrl(arg.LodestoneUrl);
         if (lodestoneId == null)
         {
-            embed.WithTitle("Invalid Lodestone URL");
-            embed.WithDescription("The lodestone URL was not valid. It should have following format:" + Environment.NewLine
-                + "https://eu.finalfantasyxiv.com/lodestone/character/YOUR_LODESTONE_ID/");
+            embed.WithTitle("无效的石之家 UID");
+            embed.WithDescription("石之家 UID 无效。 它应该具有以下格式：" + Environment.NewLine
+                + "10000000");
         }
         else
         {
@@ -814,18 +815,18 @@ public class MareModule : InteractionModuleBase
             {
                 string lodestoneAuth = await GenerateLodestoneAuth(userid, hashedLodestoneId, db).ConfigureAwait(false);
                 // check if lodestone id is already in db
-                embed.WithTitle("Authorize your character for relinking");
-                embed.WithDescription("Add following key to your character profile at https://na.finalfantasyxiv.com/lodestone/my/setting/profile/"
-                                      + Environment.NewLine + Environment.NewLine
-                                      + $"**{lodestoneAuth}**"
-                                      + Environment.NewLine + Environment.NewLine
-                                      + $"**! THIS IS NOT THE KEY YOU HAVE TO ENTER IN MARE !**"
-                                      + Environment.NewLine + Environment.NewLine
-                                      + "Once added and saved, use command **/verify_relink** to finish relink and receive a new secret key to use for Mare Synchronos."
-                                      + Environment.NewLine
-                                      + "__You can delete the entry from your profile after verification.__"
-                                      + Environment.NewLine + Environment.NewLine
-                                      + "The verification will expire in approximately 15 minutes. If you fail to **/verify_relink** the relink will be invalidated and you have to **/relink** again.");
+                embed.WithTitle("验证您的角色来重新连接");
+                embed.WithDescription("将以下密钥添加到您的角色个人简介中：https://ff14risingstones.web.sdo.com/pc/index.html#/me/settings/main"
+                                    + Environment.NewLine + Environment.NewLine
+                                    + $"**{lodestoneAuth}**"
+                                    + Environment.NewLine + Environment.NewLine
+                                    + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
+                                    + Environment.NewLine + Environment.NewLine
+                                    + "添加并保存后，使用命令 **/verify_relink** 完成重新链接并接收用于 Mare Synchronos 的新密钥。"
+                                    + Environment.NewLine
+                                    + "__验证后，您可以从您的个人简介中删除该条目。__"
+                                    + Environment.NewLine + Environment.NewLine
+                                    + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
                 _botServices.DiscordRelinkLodestoneMapping[userid] = lodestoneId.ToString();
             }
         }
@@ -852,13 +853,13 @@ public class MareModule : InteractionModuleBase
 
     private int? ParseCharacterIdFromLodestoneUrl(string lodestoneUrl)
     {
-        var regex = new Regex(@"https:\/\/(na|eu|de|fr|jp)\.finalfantasyxiv\.com\/lodestone\/character\/\d+");
+        var regex = new Regex(@"^\d{8,}$");
         var matches = regex.Match(lodestoneUrl);
         var isLodestoneUrl = matches.Success;
-        if (!isLodestoneUrl || matches.Groups.Count < 1) return null;
+        if (!isLodestoneUrl) return null;
 
-        lodestoneUrl = matches.Groups[0].ToString();
-        var stringId = lodestoneUrl.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
+        // lodestoneUrl = matches.Groups[0].ToString();
+        var stringId = lodestoneUrl;
         if (!int.TryParse(stringId, out int lodestoneId))
         {
             return null;
@@ -1037,13 +1038,23 @@ public class MareModule : InteractionModuleBase
 
         using var scope = serviceProvider.CreateScope();
         var req = new HttpClient();
+        var cookie = GetSZJCookie();
+        if (!string.IsNullOrEmpty(cookie))
+        {
+            req.DefaultRequestHeaders.Add("Cookie", cookie);
+            _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
+        }
+        else
+        {
+            _botServices.Logger.LogError("Cannot get cookie for bot service");
+        }
         using var db = scope.ServiceProvider.GetService<MareDbContext>();
 
         var lodestoneAuth = db.LodeStoneAuth.SingleOrDefault(u => u.DiscordId == cmd.User.Id);
         if (lodestoneAuth != null && _botServices.DiscordRelinkLodestoneMapping.ContainsKey(cmd.User.Id))
         {
             var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var response = await req.GetAsync($"https://{randomServer}.finalfantasyxiv.com/lodestone/character/{_botServices.DiscordRelinkLodestoneMapping[cmd.User.Id]}").ConfigureAwait(false);
+            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordRelinkLodestoneMapping[cmd.User.Id]}&page=1&limit=10").ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -1111,14 +1122,24 @@ public class MareModule : InteractionModuleBase
 
         using var scope = serviceProvider.CreateScope();
         var req = new HttpClient();
+        var cookie = GetSZJCookie();
+        if (!string.IsNullOrEmpty(cookie))
+        {
+            req.DefaultRequestHeaders.Add("Cookie", cookie);
+            _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
+        }
+        else
+        {
+            _botServices.Logger.LogError("Cannot get cookie for bot service");
+        }
         using var db = scope.ServiceProvider.GetService<MareDbContext>();
 
         var lodestoneAuth = db.LodeStoneAuth.SingleOrDefault(u => u.DiscordId == cmd.User.Id);
         if (lodestoneAuth != null && _botServices.DiscordLodestoneMapping.ContainsKey(cmd.User.Id))
         {
             // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            // var response = await req.GetAsync($"https://{randomServer}.finalfantasyxiv.com/lodestone/character/{_botServices.DiscordLodestoneMapping[cmd.User.Id]}").ConfigureAwait(false);
-            if (lodestoneAuth.DiscordId == 348375771825569802)
+            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordLodestoneMapping[cmd.User.Id]}&page=1&limit=10").ConfigureAwait(false);
+            if (response.IsSuccessStatusCode)
             {
                 _botServices.DiscordLodestoneMapping.TryRemove(cmd.User.Id, out _);
 
@@ -1157,16 +1178,16 @@ public class MareModule : InteractionModuleBase
                 lodestoneAuth.User = user;
                 lodestoneAuth.LodestoneAuthString = null;
 
-                embedBuilder.WithTitle("Registration successful");
-                embedBuilder.WithDescription("This is your private secret key. Do not share this private secret key with anyone. **If you lose it, it is irrevocably lost.**"
+                embedBuilder.WithTitle("注册成功");
+                embedBuilder.WithDescription("这是您的私人密钥。 不要与任何人共享此私人密钥。 **如果你失去了它，就永远失去了。**"
                                                 + Environment.NewLine + Environment.NewLine
                                                 + $"**{computedHash}**"
                                                 + Environment.NewLine + Environment.NewLine
-                                                + "Enter this key in Mare Synchronos and hit save to connect to the service."
+                                                + "在 Mare Synchronos 中输入此密钥并点击“保存”以连接到该服务。"
                                                 + Environment.NewLine
-                                                + "You should connect as soon as possible to not get caught by the automatic cleanup process."
+                                                + "您应该尽快连接，以免被自动清理。"
                                                 + Environment.NewLine
-                                                + "Have fun.");
+                                                + "玩得开心。");
             }
             else
             {
@@ -1188,4 +1209,10 @@ public class MareModule : InteractionModuleBase
 
         await cmd.FollowupAsync(embed: dataEmbed, ephemeral: true).ConfigureAwait(false);
     }
+
+    private string GetSZJCookie()
+    {
+        return _mareServicesConfiguration.GetValueOrDefault(nameof(ServicesConfiguration.SZJCookie), string.Empty);
+    }
+
 }

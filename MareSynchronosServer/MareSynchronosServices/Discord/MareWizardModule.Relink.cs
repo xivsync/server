@@ -142,9 +142,9 @@ public partial class MareWizardModule
         var lodestoneId = ParseCharacterIdFromLodestoneUrl(arg.LodestoneUrl);
         if (lodestoneId == null)
         {
-            embed.WithTitle("Invalid Lodestone URL");
-            embed.WithDescription("The lodestone URL was not valid. It should have following format:" + Environment.NewLine
-                + "https://eu.finalfantasyxiv.com/lodestone/character/YOUR_LODESTONE_ID/");
+            embed.WithTitle("无效的石之家 UID");
+            embed.WithDescription("石之家 UID 无效。 它应该具有以下格式：" + Environment.NewLine
+                + "10000000");
             return (false, string.Empty, string.Empty);
         }
         // check if userid is already in db
@@ -174,16 +174,16 @@ public partial class MareWizardModule
 
         string lodestoneAuth = await GenerateLodestoneAuth(Context.User.Id, hashedLodestoneId, db).ConfigureAwait(false);
         // check if lodestone id is already in db
-        embed.WithTitle("Authorize your character for relinking");
-        embed.WithDescription("Add following key to your character profile at https://na.finalfantasyxiv.com/lodestone/my/setting/profile/"
-                              + Environment.NewLine + Environment.NewLine
-                              + $"**{lodestoneAuth}**"
-                              + Environment.NewLine + Environment.NewLine
-                              + $"**! THIS IS NOT THE KEY YOU HAVE TO ENTER IN MARE !**"
-                              + Environment.NewLine
-                              + "__You can delete the entry from your profile after verification.__"
-                              + Environment.NewLine + Environment.NewLine
-                              + "The verification will expire in approximately 15 minutes. If you fail to verify the relink will be invalidated and you have to relink again.");
+        embed.WithTitle("验证您的角色来重新连接");
+        embed.WithDescription("将以下密钥添加到您的角色个人简介中：https://ff14risingstones.web.sdo.com/pc/index.html#/me/settings/main"
+                            + Environment.NewLine + Environment.NewLine
+                            + $"**{lodestoneAuth}**"
+                            + Environment.NewLine + Environment.NewLine
+                            + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
+                            + Environment.NewLine
+                            + "__验证后，您可以从您的个人简介中删除该条目。__"
+                            + Environment.NewLine + Environment.NewLine
+                            + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
         _botServices.DiscordRelinkLodestoneMapping[Context.User.Id] = lodestoneId.ToString();
 
         return (true, lodestoneAuth, expectedUser.User.UID);
@@ -192,12 +192,21 @@ public partial class MareWizardModule
     private async Task HandleVerifyRelinkAsync(ulong userid, string authString)
     {
         var req = new HttpClient();
-
+        var cookie = GetSZJCookie();
+        if (!string.IsNullOrEmpty(cookie))
+        {
+            req.DefaultRequestHeaders.Add("Cookie", cookie);
+            _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
+        }
+        else
+        {
+            _botServices.Logger.LogError("Cannot get cookie for bot service");
+        }
         _botServices.DiscordVerifiedUsers.Remove(userid, out _);
         if (_botServices.DiscordRelinkLodestoneMapping.ContainsKey(userid))
         {
-            var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var response = await req.GetAsync($"https://{randomServer}.finalfantasyxiv.com/lodestone/character/{_botServices.DiscordRelinkLodestoneMapping[userid]}").ConfigureAwait(false);
+            // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
+            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordRelinkLodestoneMapping[userid]}&page=1&limit=10").ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
