@@ -150,7 +150,7 @@ public partial class MareWizardModule : InteractionModuleBase
 
     private void AddHome(ComponentBuilder cb)
     {
-        cb.WithButton("Return to Home", "wizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
+        cb.WithButton("返回主菜单", "wizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
     }
 
     private async Task ModifyModalInteraction(EmbedBuilder eb, ComponentBuilder cb)

@@ -201,6 +201,7 @@ public partial class MareWizardModule
         if (!string.IsNullOrEmpty(cookie))
         {
             req.DefaultRequestHeaders.Add("Cookie", cookie);
+            req.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
         }
         else
@@ -212,7 +213,9 @@ public partial class MareWizardModule
         if (_botServices.DiscordLodestoneMapping.ContainsKey(userid))
         {
             // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordLodestoneMapping[userid]}&page=1&limit=10").ConfigureAwait(false);
+            var url = $"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordLodestoneMapping[userid]}&page=1&limit=10";
+            _botServices.Logger.LogInformation("URL: {url}", url);
+            var response = await req.GetAsync(url).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -225,6 +228,10 @@ public partial class MareWizardModule
                 {
                     _botServices.DiscordVerifiedUsers[userid] = false;
                 }
+            }
+            else
+            {
+                _botServices.Logger.LogError("Response get {resStat}", response.StatusCode);
             }
         }
     }
