@@ -171,7 +171,7 @@ public partial class MareWizardModule
         if (db.LodeStoneAuth.Any(a => a.HashedLodestoneId == hashedLodestoneId))
         {
             // character already in db
-            embed.WithDescription("该石之家角色已存在于数据库中。 如果您想将此角色附加到您当前的 Discord 帐户，请使用重新链接。");
+            embed.WithDescription("该石之家角色已存在于数据库中。 如果您想将此角色附加到您当前的 Discord 帐户，请使用重新连接。");
             return (false, string.Empty);
         }
 
@@ -200,7 +200,7 @@ public partial class MareWizardModule
         var cookie = GetSZJCookie();
         if (!string.IsNullOrEmpty(cookie))
         {
-            req.DefaultRequestHeaders.Add("Cookie", cookie);
+            // req.DefaultRequestHeaders.Add("Cookie", cookie);
             req.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
         }
@@ -213,7 +213,7 @@ public partial class MareWizardModule
         if (_botServices.DiscordLodestoneMapping.ContainsKey(userid))
         {
             // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var url = $"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordLodestoneMapping[userid]}&page=1&limit=10";
+            var url = $"https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={_botServices.DiscordLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20";
             _botServices.Logger.LogInformation("URL: {url}", url);
             var response = await req.GetAsync(url).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)

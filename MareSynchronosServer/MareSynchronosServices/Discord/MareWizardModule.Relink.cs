@@ -15,15 +15,15 @@ public partial class MareWizardModule
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
         EmbedBuilder eb = new();
-        eb.WithTitle("Relink");
+        eb.WithTitle("重新连接");
         eb.WithColor(Color.Blue);
-        eb.WithDescription("Use this in case you already have a registered Mare account, but lost access to your previous Discord account." + Environment.NewLine + Environment.NewLine
-            + "- Have your original registered Lodestone URL ready (i.e. https://eu.finalfantasyxiv.com/lodestone/character/XXXXXXXXX)" + Environment.NewLine
-            + "  - The relink process requires you to modify your Lodestone profile with a generated code for verification" + Environment.NewLine
-            + "- Do not use this on mobile because you will need to be able to copy the generated secret key");
+        eb.WithDescription("如果您已经注册了 Mare 帐户，但无法访问之前的 Discord 帐户，请使用此选项。" + Environment.NewLine + Environment.NewLine
+            + "- 准备好您的石之家 UID (例如 10000000)" + Environment.NewLine
+            + "  - 注册需要您使用生成的验证码修改您的石之家个人资料" + Environment.NewLine
+            + "- 不要在移动设备上使用此功能，因为您需要能够复制生成的密钥");
         ComponentBuilder cb = new();
         AddHome(cb);
-        cb.WithButton("Start Relink", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔗"));
+        cb.WithButton("开始重新连接", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔗"));
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -50,9 +50,9 @@ public partial class MareWizardModule
         eb.WithColor(Color.Purple);
         var result = await HandleRelinkModalAsync(eb, lodestoneModal).ConfigureAwait(false);
         ComponentBuilder cb = new();
-        cb.WithButton("Cancel", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
-        if (result.Success) cb.WithButton("Verify", "wizard-relink-verify:" + result.LodestoneAuth + "," + result.UID, ButtonStyle.Primary, emote: new Emoji("✅"));
-        else cb.WithButton("Try again", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
+        cb.WithButton("取消", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
+        if (result.Success) cb.WithButton("验证", "wizard-relink-verify:" + result.LodestoneAuth + "," + result.UID, ButtonStyle.Primary, emote: new Emoji("✅"));
+        else cb.WithButton("重试", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
         await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -66,12 +66,12 @@ public partial class MareWizardModule
         EmbedBuilder eb = new();
         ComponentBuilder cb = new();
         eb.WithColor(Color.Purple);
-        cb.WithButton("Cancel", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
-        cb.WithButton("Check", "wizard-relink-verify-check:" + verificationCode + "," + uid, ButtonStyle.Primary, emote: new Emoji("❓"));
-        eb.WithTitle("Relink Verification Pending");
-        eb.WithDescription("Please wait until the bot verifies your registration." + Environment.NewLine
-            + "Press \"Check\" to check if the verification has been already processed" + Environment.NewLine + Environment.NewLine
-            + "__This will not advance automatically, you need to press \"Check\".__");
+        cb.WithButton("取消", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
+        cb.WithButton("检查", "wizard-relink-verify-check:" + verificationCode + "," + uid, ButtonStyle.Primary, emote: new Emoji("❓"));
+        eb.WithTitle("重新连接验证待定");
+        eb.WithDescription("请等待机器人验证您的注册。" + Environment.NewLine
+            + "按“检查”检查验证是否已处理" + Environment.NewLine + Environment.NewLine
+            + "__这不会自动前进，您需要按“检查”按钮。__");
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -89,10 +89,10 @@ public partial class MareWizardModule
             if (stillEnqueued)
             {
                 eb.WithColor(Color.Gold);
-                eb.WithTitle("Your relink verification is still pending");
-                eb.WithDescription("Please try again and click Check in a few seconds");
-                cb.WithButton("Cancel", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
-                cb.WithButton("Check", "wizard-relink-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
+                eb.WithTitle("您的重新链接验证仍在等待中");
+                eb.WithDescription("请重试并在几秒钟后单击“检查”");
+                cb.WithButton("取消", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
+                cb.WithButton("检查", "wizard-relink-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
             }
             else
             {
@@ -109,14 +109,14 @@ public partial class MareWizardModule
                 eb.WithColor(Color.Green);
                 using var db = _services.CreateScope().ServiceProvider.GetRequiredService<MareDbContext>();
                 var (_, key) = await HandleRelinkUser(db, uid).ConfigureAwait(false);
-                eb.WithTitle($"Relink successful, your UID is again: {uid}");
-                eb.WithDescription("This is your private secret key. Do not share this private secret key with anyone. **If you lose it, it is irrevocably lost.**"
+                eb.WithTitle($"重新链接成功，您的UID又回来了: {uid}");
+                eb.WithDescription("这是您的私人密钥。 不要与任何人共享此私人密钥。 **如果你失去了它，就永远失去了。**"
                                              + Environment.NewLine + Environment.NewLine
                                              + $"**{key}**"
                                              + Environment.NewLine + Environment.NewLine
-                                             + "Enter this key in Mare Synchronos and hit save to connect to the service."
+                                             + "在 Mare Synchronos 中输入此密钥并点击“保存”以连接到该服务。"
                                              + Environment.NewLine
-                                             + "Have fun.");
+                                             + "玩得开心。");
                 AddHome(cb);
             }
             else
@@ -195,7 +195,7 @@ public partial class MareWizardModule
         var cookie = GetSZJCookie();
         if (!string.IsNullOrEmpty(cookie))
         {
-            req.DefaultRequestHeaders.Add("Cookie", cookie);
+            // req.DefaultRequestHeaders.Add("Cookie", cookie);
             req.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
         }
@@ -207,7 +207,7 @@ public partial class MareWizardModule
         if (_botServices.DiscordRelinkLodestoneMapping.ContainsKey(userid))
         {
             // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordRelinkLodestoneMapping[userid]}&page=1&limit=10").ConfigureAwait(false);
+            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={_botServices.DiscordRelinkLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20").ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

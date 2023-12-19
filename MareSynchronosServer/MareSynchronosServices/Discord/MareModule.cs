@@ -181,7 +181,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("verify_relink", "在此 Discord 的 Mare Synchronos 服务器上完成您的用户的重新链接过程")]
+    [SlashCommand("verify_relink", "在此 Discord 的 Mare Synchronos 服务器上完成您的用户的重新连接过程")]
     public async Task VerifyRelink()
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
@@ -198,7 +198,7 @@ public class MareModule : InteractionModuleBase
             }
             else if (!_botServices.DiscordRelinkLodestoneMapping.ContainsKey(Context.User.Id))
             {
-                eb.WithTitle("无法验证重新链接");
+                eb.WithTitle("无法验证重新连接");
                 eb.WithDescription("您需要先**/relink**，然后才能**/verify_relink**");
                 await RespondAsync(embeds: new[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
             }
@@ -254,7 +254,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    [SlashCommand("relink", "允许您将新的 Discord 帐户链接到现有的 Mare 帐户")]
+    [SlashCommand("relink", "允许您将新的 Discord 帐户连接到现有的 Mare 帐户")]
     public async Task Relink()
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
@@ -822,7 +822,7 @@ public class MareModule : InteractionModuleBase
                                     + Environment.NewLine + Environment.NewLine
                                     + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
                                     + Environment.NewLine + Environment.NewLine
-                                    + "添加并保存后，使用命令 **/verify_relink** 完成重新链接并接收用于 Mare Synchronos 的新密钥。"
+                                    + "添加并保存后，使用命令 **/verify_relink** 完成重新连接并接收用于 Mare Synchronos 的新密钥。"
                                     + Environment.NewLine
                                     + "__验证后，您可以从您的个人简介中删除该条目。__"
                                     + Environment.NewLine + Environment.NewLine
@@ -1041,7 +1041,7 @@ public class MareModule : InteractionModuleBase
         var cookie = GetSZJCookie();
         if (!string.IsNullOrEmpty(cookie))
         {
-            req.DefaultRequestHeaders.Add("Cookie", cookie);
+            // req.DefaultRequestHeaders.Add("Cookie", cookie);
             req.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
         }
@@ -1055,7 +1055,7 @@ public class MareModule : InteractionModuleBase
         if (lodestoneAuth != null && _botServices.DiscordRelinkLodestoneMapping.ContainsKey(cmd.User.Id))
         {
             var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordRelinkLodestoneMapping[cmd.User.Id]}&page=1&limit=10").ConfigureAwait(false);
+            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={_botServices.DiscordRelinkLodestoneMapping[cmd.User.Id]}&part_id=&orderBy=time&page=1&limit=20").ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -1126,7 +1126,7 @@ public class MareModule : InteractionModuleBase
         var cookie = GetSZJCookie();
         if (!string.IsNullOrEmpty(cookie))
         {
-            req.DefaultRequestHeaders.Add("Cookie", cookie);
+            // req.DefaultRequestHeaders.Add("Cookie", cookie);
             req.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
         }
@@ -1140,7 +1140,7 @@ public class MareModule : InteractionModuleBase
         if (lodestoneAuth != null && _botServices.DiscordLodestoneMapping.ContainsKey(cmd.User.Id))
         {
             // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/home/userInfo/getUserInfo?uuid={_botServices.DiscordLodestoneMapping[cmd.User.Id]}&page=1&limit=10").ConfigureAwait(false);
+            var response = await req.GetAsync($"https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={_botServices.DiscordLodestoneMapping[cmd.User.Id]}&part_id=&orderBy=time&page=1&limit=20").ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 _botServices.DiscordLodestoneMapping.TryRemove(cmd.User.Id, out _);
