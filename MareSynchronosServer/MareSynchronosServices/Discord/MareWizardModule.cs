@@ -58,15 +58,15 @@ public partial class MareWizardModule : InteractionModuleBase
         }
 
         EmbedBuilder eb = new();
-        eb.WithTitle("欢迎使用本服务器的Mare Synchronos服务机器人");
+        eb.WithTitle("欢迎使用本服务器的 Mare Synchronos 服务机器人");
         eb.WithDescription("你可以做这些事情:" + Environment.NewLine + Environment.NewLine
-            + (!hasAccount ? string.Empty : ("- 检查你的账号状态 按下 \"ℹ️ 用户信息\"" + Environment.NewLine))
-            + (hasAccount ? string.Empty : ("- 注册一个新的Mare账号 按下 \"🌒 注册\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 如果丢失了同步密钥 按下 \"🏥 恢复\"" + Environment.NewLine))
-            + (hasAccount ? string.Empty : ("- 如果你更换了你的Discord账号 按下 \"🔗 重新连接\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 创建一个小号Mare UID 按下 \"2️⃣ 辅助 UID\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 设置个性Mare UID 按下 \"💅 个性 UID\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 删除你的大号或者小号 按下 \"⚠️ 删除\""))
+            + (!hasAccount ? string.Empty : ("- 检查你的账号状态 点击 \"ℹ️ 用户信息\"" + Environment.NewLine))
+            + (hasAccount ? string.Empty : ("- 注册一个新的 Mare 账号 点击 \"🌒 注册\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- 如果丢失了同步密钥 点击 \"🏥 恢复\"" + Environment.NewLine))
+            + (hasAccount ? string.Empty : ("- 如果你更换了你的 Discord 账号 点击 \"🔗 重新连接\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- 创建一个小号 Mare UID 点击 \"2️⃣ 辅助 UID\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- 设置个性 Mare UID 点击 \"💅 个性 UID\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- 删除你的大号或者小号 点击 \"⚠️ 删除\""))
             );
         eb.WithColor(Color.Blue);
         ComponentBuilder cb = new();

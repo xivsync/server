@@ -77,7 +77,7 @@ public partial class MareWizardModule
         eb.WithTitle("待验证");
         eb.WithDescription("请等待机器人验证您的注册。" + Environment.NewLine
             + "按“检查”检查验证是否已处理" + Environment.NewLine + Environment.NewLine
-            + "__这一步骤不会自动前进，您需要按下“检查”按钮。__");
+            + "__这一步骤不会自动前进，您需要点击“检查”按钮。__");
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
