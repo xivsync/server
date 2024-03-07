@@ -7,9 +7,9 @@ namespace MareSynchronosServices.Discord;
 
 public class LodestoneModal : IModal
 {
-    public string Title => "Verify with Lodestone";
+    public string Title => "通过石之家认证";
 
-    [InputLabel("Enter the Lodestone URL of your Character")]
-    [ModalTextInput("lodestone_url", TextInputStyle.Short, "https://*.finalfantasyxiv.com/lodestone/character/<CHARACTERID>/")]
+    [InputLabel("输入您角色的石之家 UID")]
+    [ModalTextInput("lodestone_url", TextInputStyle.Short, "10000000")]
     public string LodestoneUrl { get; set; }
 }
