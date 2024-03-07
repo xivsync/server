@@ -14,6 +14,8 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}", nameof(ComponentRegister), Context.Interaction.User.Id);
+
         EmbedBuilder eb = new();
         eb.WithColor(Color.Blue);
         eb.WithTitle("开始注册");
@@ -32,6 +34,8 @@ public partial class MareWizardModule
     public async Task ComponentRegisterStart()
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
+
+        _logger.LogInformation("{method}:{userId}", nameof(ComponentRegisterStart), Context.Interaction.User.Id);
 
         using var db = GetDbContext();
         var entry = await db.LodeStoneAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id && u.StartedAt != null).ConfigureAwait(false);
@@ -52,6 +56,8 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}:{lodestone}", nameof(ModalRegister), Context.Interaction.User.Id, lodestoneModal.LodestoneUrl);
+
         EmbedBuilder eb = new();
         eb.WithColor(Color.Purple);
         var success = await HandleRegisterModalAsync(eb, lodestoneModal).ConfigureAwait(false);
@@ -67,8 +73,10 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
-        _botServices.VerificationQueue.Enqueue(new KeyValuePair<ulong, Action<IServiceProvider>>(Context.User.Id,
-            async (_) => await HandleVerifyAsync(Context.User.Id, verificationCode).ConfigureAwait(false)));
+        _logger.LogInformation("{method}:{userId}:{verificationcode}", nameof(ComponentRegisterVerify), Context.Interaction.User.Id, verificationCode);
+
+        _botServices.VerificationQueue.Enqueue(new KeyValuePair<ulong, Func<DiscordBotServices, Task>>(Context.User.Id,
+            (service) => HandleVerifyAsync(Context.User.Id, verificationCode, service)));
         EmbedBuilder eb = new();
         ComponentBuilder cb = new();
         eb.WithColor(Color.Purple);
@@ -85,6 +93,8 @@ public partial class MareWizardModule
     public async Task ComponentRegisterVerifyCheck(string verificationCode)
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
+
+        _logger.LogInformation("{method}:{userId}:{uid}", nameof(ComponentRegisterVerifyCheck), Context.Interaction.User.Id, verificationCode);
 
         EmbedBuilder eb = new();
         ComponentBuilder cb = new();
@@ -194,7 +204,7 @@ public partial class MareWizardModule
         return (true, lodestoneAuth);
     }
 
-    private async Task HandleVerifyAsync(ulong userid, string authString)
+    private async Task HandleVerifyAsync(ulong userid, string authString, DiscordBotServices services)
     {
         var req = new HttpClient();
         var cookie = GetSZJCookie();
@@ -209,29 +219,31 @@ public partial class MareWizardModule
             _botServices.Logger.LogError("Cannot get cookie for bot service");
         }
 
-        _botServices.DiscordVerifiedUsers.Remove(userid, out _);
-        if (_botServices.DiscordLodestoneMapping.ContainsKey(userid))
+        services.DiscordVerifiedUsers.Remove(userid, out _);
+        if (services.DiscordLodestoneMapping.ContainsKey(userid))
         {
-            // var randomServer = _botServices.LodestoneServers[random.Next(_botServices.LodestoneServers.Length)];
-            var url = $"https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={_botServices.DiscordLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20";
-            _botServices.Logger.LogInformation("URL: {url}", url);
+            // var randomServer = services.LodestoneServers[random.Next(services.LodestoneServers.Length)];
+            var url = $"https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={services.DiscordLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20";
             var response = await req.GetAsync(url).ConfigureAwait(false);
+            _logger.LogInformation("Verifying {userid} with URL {url}", userid, url);
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (content.Contains(authString))
                 {
-                    _botServices.DiscordVerifiedUsers[userid] = true;
-                    _botServices.DiscordLodestoneMapping.TryRemove(userid, out _);
+                    services.DiscordVerifiedUsers[userid] = true;
+                    _logger.LogInformation("Verified {userid} from lodestone {lodestone}", userid, services.DiscordLodestoneMapping[userid]);
+                    services.DiscordLodestoneMapping.TryRemove(userid, out _);
                 }
                 else
                 {
-                    _botServices.DiscordVerifiedUsers[userid] = false;
+                    services.DiscordVerifiedUsers[userid] = false;
+                    _logger.LogInformation("Could not verify {userid} from lodestone {lodestone}, did not find authString: {authString}", userid, services.DiscordLodestoneMapping[userid], authString);
                 }
             }
             else
             {
-                _botServices.Logger.LogError("Response get {resStat}", response.StatusCode);
+                _logger.LogWarning("Could not verify {userid}, HttpStatusCode: {code}", userid, response.StatusCode);
             }
         }
     }

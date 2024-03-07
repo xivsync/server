@@ -11,7 +11,7 @@ public class Program
     public static void Main(string[] args)
     {
         var hostBuilder = CreateHostBuilder(args);
-        var host = hostBuilder.Build();
+        using var host = hostBuilder.Build();
         using (var scope = host.Services.CreateScope())
         {
             var services = scope.ServiceProvider;
@@ -21,7 +21,9 @@ public class Program
 
             if (options.IsMain)
             {
+                context.Database.SetCommandTimeout(TimeSpan.FromMinutes(10));
                 context.Database.Migrate();
+                context.Database.SetCommandTimeout(TimeSpan.FromSeconds(30));
                 context.SaveChanges();
 
                 // clean up residuals
@@ -38,7 +40,7 @@ public class Program
 
             metrics.SetGaugeTo(MetricsAPI.GaugeUsersRegistered, context.Users.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugePairs, context.ClientPairs.AsNoTracking().Count());
-            metrics.SetGaugeTo(MetricsAPI.GaugePairsPaused, context.ClientPairs.AsNoTracking().Count(p => p.IsPaused));
+            metrics.SetGaugeTo(MetricsAPI.GaugePairsPaused, context.Permissions.AsNoTracking().Count(p => p.IsPaused));
 
         }
 
@@ -57,7 +59,7 @@ public class Program
 
     public static IHostBuilder CreateHostBuilder(string[] args)
     {
-        var loggerFactory = LoggerFactory.Create(builder =>
+        using var loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.ClearProviders();
             builder.AddConsole();

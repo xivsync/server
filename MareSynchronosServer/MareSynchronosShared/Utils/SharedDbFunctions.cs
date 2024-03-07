@@ -20,8 +20,6 @@ public static class SharedDbFunctions
                 newOwner = potentialNewOwner.GroupUserUID;
                 potentialNewOwner.IsPinned = true;
                 potentialNewOwner.IsModerator = false;
-
-                await context.SaveChangesAsync().ConfigureAwait(false);
                 break;
             }
         }
@@ -30,8 +28,6 @@ public static class SharedDbFunctions
         {
             context.GroupPairs.RemoveRange(groupPairs);
             context.Groups.Remove(group);
-
-            await context.SaveChangesAsync().ConfigureAwait(false);
         }
 
         return (groupHasMigrated, newOwner);
@@ -96,9 +92,17 @@ public static class SharedDbFunctions
             }
 
             dbContext.GroupPairs.Remove(userGroupPair);
-
-            await dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
+
+        var defaultPermissions = await dbContext.UserDefaultPreferredPermissions.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var groupPermissions = await dbContext.GroupPairPreferredPermissions.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var individualPermissions = await dbContext.Permissions.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var bannedinGroups = await dbContext.GroupBans.Where(u => u.BannedUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+
+        dbContext.GroupPairPreferredPermissions.RemoveRange(groupPermissions);
+        dbContext.UserDefaultPreferredPermissions.RemoveRange(defaultPermissions);
+        dbContext.Permissions.RemoveRange(individualPermissions);
+        dbContext.GroupBans.RemoveRange(bannedinGroups);
 
         _logger.LogInformation("User purged: {uid}", user.UID);
 

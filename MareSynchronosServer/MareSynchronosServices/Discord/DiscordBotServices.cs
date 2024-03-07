@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using Discord.Rest;
-using Discord.WebSocket;
 using MareSynchronosShared.Metrics;
 
 namespace MareSynchronosServices.Discord;
@@ -14,20 +13,19 @@ public class DiscordBotServices
     public ConcurrentDictionary<ulong, DateTime> LastVanityChange = new();
     public ConcurrentDictionary<string, DateTime> LastVanityGidChange = new();
     public ConcurrentDictionary<ulong, ulong> ValidInteractions { get; } = new();
-    public List<RestRole> VanityRoles { get; set; } = new();
+    public Dictionary<RestRole, string> VanityRoles { get; set; } = new();
     private readonly IServiceProvider _serviceProvider;
     private CancellationTokenSource verificationTaskCts;
 
-    public DiscordBotServices(IServiceProvider serviceProvider, ILogger<DiscordBotServices> logger, MareMetrics metrics)
+    public DiscordBotServices(ILogger<DiscordBotServices> logger, MareMetrics metrics)
     {
-        _serviceProvider = serviceProvider;
         Logger = logger;
         Metrics = metrics;
     }
 
     public ILogger<DiscordBotServices> Logger { get; init; }
     public MareMetrics Metrics { get; init; }
-    public ConcurrentQueue<KeyValuePair<ulong, Action<IServiceProvider>>> VerificationQueue { get; } = new();
+    public ConcurrentQueue<KeyValuePair<ulong, Func<DiscordBotServices, Task>>> VerificationQueue { get; } = new();
 
     public Task Start()
     {
@@ -46,17 +44,21 @@ public class DiscordBotServices
         verificationTaskCts = new CancellationTokenSource();
         while (!verificationTaskCts.IsCancellationRequested)
         {
-            if (VerificationQueue.TryDequeue(out var queueitem))
+            Logger.LogDebug("Processing Verification Queue, Entries: {entr}", VerificationQueue.Count);
+            if (VerificationQueue.TryPeek(out var queueitem))
             {
                 try
                 {
-                    queueitem.Value.Invoke(_serviceProvider);
-
-                    Logger.LogInformation("Sent login information to user");
+                    await queueitem.Value.Invoke(this).ConfigureAwait(false);
+                    Logger.LogInformation("Processed Verification for {key}", queueitem.Key);
                 }
                 catch (Exception e)
                 {
                     Logger.LogError(e, "Error during queue work");
+                }
+                finally
+                {
+                    VerificationQueue.TryDequeue(out _);
                 }
             }
 

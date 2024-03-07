@@ -12,6 +12,8 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}", nameof(ComponentUserinfo), Context.Interaction.User.Id);
+
         using var mareDb = GetDbContext();
         EmbedBuilder eb = new();
         eb.WithTitle("User Info");
@@ -32,6 +34,8 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionUserinfo), Context.Interaction.User.Id, uid);
+
         using var mareDb = GetDbContext();
         EmbedBuilder eb = new();
         eb.WithTitle($"User Info for {uid}");
@@ -49,7 +53,6 @@ public partial class MareWizardModule
 
         var dbUser = await db.Users.SingleOrDefaultAsync(u => u.UID == uid).ConfigureAwait(false);
 
-        var auth = await db.Auth.Include(u => u.PrimaryUser).SingleOrDefaultAsync(u => u.UserUID == dbUser.UID).ConfigureAwait(false);
         var groups = await db.Groups.Where(g => g.OwnerUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var groupsJoined = await db.GroupPairs.Where(g => g.GroupUserUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("UID:" + dbUser.UID).ConfigureAwait(false);
@@ -62,7 +65,7 @@ public partial class MareWizardModule
         }
         eb.AddField("上一次在线(UTC)", dbUser.LastLoggedIn.ToString("U"));
         eb.AddField("目前是否在线", !string.IsNullOrEmpty(identity));
-        eb.AddField("同步密钥哈希值", auth.HashedKey);
+
         eb.AddField("加入的同步贝数量", groupsJoined.Count);
         eb.AddField("拥有的同步贝数量", groups.Count);
         foreach (var group in groups)
@@ -74,8 +77,6 @@ public partial class MareWizardModule
             }
             eb.AddField("拥有的同步贝 " + group.GID + " 用户数量", syncShellUserCount);
         }
-
-        eb.AddField("目前是否在线", !string.IsNullOrEmpty(identity));
     }
 
 }

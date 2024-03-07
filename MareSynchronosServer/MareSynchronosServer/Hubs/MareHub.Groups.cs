@@ -36,8 +36,8 @@ public partial class MareHub
             GroupGID = dto.Group.GID,
         };
 
-        _dbContext.Add(ban);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        DbContext.Add(ban);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         await GroupRemoveUser(dto).ConfigureAwait(false);
 
@@ -53,67 +53,14 @@ public partial class MareHub
         if (!hasRights) return;
 
         group.InvitesEnabled = !dto.Permissions.HasFlag(GroupPermissions.DisableInvites);
-        group.DisableSounds = dto.Permissions.HasFlag(GroupPermissions.DisableSounds);
-        group.DisableAnimations = dto.Permissions.HasFlag(GroupPermissions.DisableAnimations);
-        group.DisableVFX = dto.Permissions.HasFlag(GroupPermissions.DisableVFX);
+        group.PreferDisableSounds = dto.Permissions.HasFlag(GroupPermissions.PreferDisableSounds);
+        group.PreferDisableAnimations = dto.Permissions.HasFlag(GroupPermissions.PreferDisableAnimations);
+        group.PreferDisableVFX = dto.Permissions.HasFlag(GroupPermissions.PreferDisableVFX);
 
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var groupPairs = _dbContext.GroupPairs.Where(p => p.GroupGID == dto.Group.GID).Select(p => p.GroupUserUID).ToList();
+        var groupPairs = DbContext.GroupPairs.Where(p => p.GroupGID == dto.Group.GID).Select(p => p.GroupUserUID).ToList();
         await Clients.Users(groupPairs).Client_GroupChangePermissions(new GroupPermissionDto(dto.Group, dto.Permissions)).ConfigureAwait(false);
-    }
-
-    [Authorize(Policy = "Identified")]
-    public async Task GroupChangeIndividualPermissionState(GroupPairUserPermissionDto dto)
-    {
-        _logger.LogCallInfo(MareHubLogger.Args(dto));
-
-        var (inGroup, groupPair) = await TryValidateUserInGroup(dto.Group.GID).ConfigureAwait(false);
-        if (!inGroup) return;
-
-        var wasPaused = groupPair.IsPaused;
-        groupPair.DisableSounds = dto.GroupPairPermissions.IsDisableSounds();
-        groupPair.DisableAnimations = dto.GroupPairPermissions.IsDisableAnimations();
-        groupPair.IsPaused = dto.GroupPairPermissions.IsPaused();
-        groupPair.DisableVFX = dto.GroupPairPermissions.IsDisableVFX();
-
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        var groupPairs = _dbContext.GroupPairs.Include(p => p.GroupUser).Where(p => p.GroupGID == dto.Group.GID).ToList();
-        await Clients.Users(groupPairs.Select(p => p.GroupUserUID)).Client_GroupPairChangePermissions(dto).ConfigureAwait(false);
-
-        var allUserPairs = await GetAllPairedClientsWithPauseState().ConfigureAwait(false);
-        var self = await _dbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-
-        if (wasPaused == groupPair.IsPaused) return;
-
-        foreach (var groupUserPair in groupPairs.Where(u => !string.Equals(u.GroupUserUID, UserUID, StringComparison.Ordinal)).ToList())
-        {
-            var userPair = allUserPairs.SingleOrDefault(p => string.Equals(p.UID, groupUserPair.GroupUserUID, StringComparison.Ordinal));
-            if (userPair != null)
-            {
-                if (userPair.IsDirectlyPaused != PauseInfo.NoConnection) continue;
-                if (userPair.IsPausedExcludingGroup(dto.Group.GID) is PauseInfo.Unpaused) continue;
-                if (userPair.IsOtherPausedForSpecificGroup(dto.Group.GID) is PauseInfo.Paused) continue;
-            }
-
-            var groupUserIdent = await GetUserIdent(groupUserPair.GroupUserUID).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(groupUserIdent))
-            {
-                if (!groupPair.IsPaused)
-                {
-                    await Clients.User(UserUID).Client_UserSendOnline(new(groupUserPair.ToUserData(), groupUserIdent)).ConfigureAwait(false);
-                    await Clients.User(groupUserPair.GroupUserUID)
-                        .Client_UserSendOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
-                }
-                else
-                {
-                    await Clients.User(UserUID).Client_UserSendOffline(new(groupUserPair.ToUserData())).ConfigureAwait(false);
-                    await Clients.User(groupUserPair.GroupUserUID)
-                        .Client_UserSendOffline(new(self.ToUserData())).ConfigureAwait(false);
-                }
-            }
-        }
     }
 
     [Authorize(Policy = "Identified")]
@@ -127,22 +74,22 @@ public partial class MareHub
         var (isInGroup, newOwnerPair) = await TryValidateUserInGroup(dto.Group.GID, dto.User.UID).ConfigureAwait(false);
         if (!isInGroup) return;
 
-        var ownedShells = await _dbContext.Groups.CountAsync(g => g.OwnerUID == dto.User.UID).ConfigureAwait(false);
+        var ownedShells = await DbContext.Groups.CountAsync(g => g.OwnerUID == dto.User.UID).ConfigureAwait(false);
         if (ownedShells >= _maxExistingGroupsByUser) return;
 
-        var prevOwner = await _dbContext.GroupPairs.SingleOrDefaultAsync(g => g.GroupGID == dto.Group.GID && g.GroupUserUID == UserUID).ConfigureAwait(false);
+        var prevOwner = await DbContext.GroupPairs.SingleOrDefaultAsync(g => g.GroupGID == dto.Group.GID && g.GroupUserUID == UserUID).ConfigureAwait(false);
         prevOwner.IsPinned = false;
         group.Owner = newOwnerPair.GroupUser;
         group.Alias = null;
         newOwnerPair.IsPinned = true;
         newOwnerPair.IsModerator = false;
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         _logger.LogCallInfo(MareHubLogger.Args(dto, "Success"));
 
-        var groupPairs = await _dbContext.GroupPairs.Where(p => p.GroupGID == dto.Group.GID).Select(p => p.GroupUserUID).AsNoTracking().ToListAsync().ConfigureAwait(false);
+        var groupPairs = await DbContext.GroupPairs.Where(p => p.GroupGID == dto.Group.GID).Select(p => p.GroupUserUID).AsNoTracking().ToListAsync().ConfigureAwait(false);
 
-        await Clients.Users(groupPairs).Client_GroupSendInfo(new GroupInfoDto(group.ToGroupData(), newOwnerPair.GroupUser.ToUserData(), group.GetGroupPermissions())).ConfigureAwait(false);
+        await Clients.Users(groupPairs).Client_GroupSendInfo(new GroupInfoDto(group.ToGroupData(), newOwnerPair.GroupUser.ToUserData(), group.ToEnum())).ConfigureAwait(false);
     }
 
     [Authorize(Policy = "Identified")]
@@ -156,7 +103,7 @@ public partial class MareHub
         _logger.LogCallInfo(MareHubLogger.Args(dto, "Success"));
 
         group.HashedPassword = StringUtils.Sha256String(dto.Password);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         return true;
     }
@@ -169,54 +116,57 @@ public partial class MareHub
         var (hasRights, group) = await TryValidateGroupModeratorOrOwner(dto.Group.GID).ConfigureAwait(false);
         if (!hasRights) return;
 
-        var groupPairs = await _dbContext.GroupPairs.Include(p => p.GroupUser).Where(p => p.GroupGID == dto.Group.GID).ToListAsync().ConfigureAwait(false);
+        var groupPairs = await DbContext.GroupPairs.Include(p => p.GroupUser).Where(p => p.GroupGID == dto.Group.GID).ToListAsync().ConfigureAwait(false);
+        var notPinned = groupPairs.Where(g => !g.IsPinned && !g.IsModerator).ToList();
 
-        await Clients.Users(groupPairs.Where(p => !p.IsPinned && !p.IsModerator).Select(g => g.GroupUserUID)).Client_GroupDelete(new GroupDto(group.ToGroupData())).ConfigureAwait(false);
+        await Clients.Users(notPinned.Select(g => g.GroupUserUID)).Client_GroupDelete(new GroupDto(group.ToGroupData())).ConfigureAwait(false);
 
         _logger.LogCallInfo(MareHubLogger.Args(dto, "Success"));
 
-        var notPinned = groupPairs.Where(g => !g.IsPinned && !g.IsModerator).ToList();
-
-        _dbContext.GroupPairs.RemoveRange(notPinned);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        DbContext.GroupPairs.RemoveRange(notPinned);
 
         foreach (var pair in notPinned)
         {
-            await Clients.Users(groupPairs.Where(p => p.IsPinned).Select(g => g.GroupUserUID)).Client_GroupPairLeft(new GroupPairDto(dto.Group, pair.GroupUser.ToUserData())).ConfigureAwait(false);
+            await Clients.Users(groupPairs.Where(p => p.IsPinned || p.IsModerator).Select(g => g.GroupUserUID))
+                .Client_GroupPairLeft(new GroupPairDto(dto.Group, pair.GroupUser.ToUserData())).ConfigureAwait(false);
 
             var pairIdent = await GetUserIdent(pair.GroupUserUID).ConfigureAwait(false);
             if (string.IsNullOrEmpty(pairIdent)) continue;
 
-            var allUserPairs = await GetAllPairedClientsWithPauseState(pair.GroupUserUID).ConfigureAwait(false);
+            var allUserPairs = await GetAllPairInfo(pair.GroupUserUID).ConfigureAwait(false);
 
             foreach (var groupUserPair in groupPairs.Where(p => !string.Equals(p.GroupUserUID, pair.GroupUserUID, StringComparison.Ordinal)))
             {
-                await UserGroupLeave(groupUserPair, allUserPairs, pairIdent).ConfigureAwait(false);
+                await UserGroupLeave(pair, pairIdent, allUserPairs, pair.GroupUserUID).ConfigureAwait(false);
             }
         }
+
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<GroupPasswordDto> GroupCreate()
+    public async Task<GroupJoinDto> GroupCreate()
     {
         _logger.LogCallInfo();
-        var existingGroupsByUser = await _dbContext.Groups.CountAsync(u => u.OwnerUID == UserUID).ConfigureAwait(false);
-        var existingJoinedGroups = await _dbContext.GroupPairs.CountAsync(u => u.GroupUserUID == UserUID).ConfigureAwait(false);
+        var existingGroupsByUser = await DbContext.Groups.CountAsync(u => u.OwnerUID == UserUID).ConfigureAwait(false);
+        var existingJoinedGroups = await DbContext.GroupPairs.CountAsync(u => u.GroupUserUID == UserUID).ConfigureAwait(false);
         if (existingGroupsByUser >= _maxExistingGroupsByUser || existingJoinedGroups >= _maxJoinedGroupsByUser)
         {
             throw new System.Exception($"Max groups for user is {_maxExistingGroupsByUser}, max joined groups is {_maxJoinedGroupsByUser}.");
         }
 
         var gid = StringUtils.GenerateRandomString(12);
-        while (await _dbContext.Groups.AnyAsync(g => g.GID == "MSS-" + gid).ConfigureAwait(false))
+        while (await DbContext.Groups.AnyAsync(g => g.GID == "MSS-" + gid).ConfigureAwait(false))
         {
             gid = StringUtils.GenerateRandomString(12);
         }
         gid = "MSS-" + gid;
 
         var passwd = StringUtils.GenerateRandomString(16);
-        var sha = SHA256.Create();
+        using var sha = SHA256.Create();
         var hashedPw = StringUtils.Sha256String(passwd);
+
+        UserDefaultPreferredPermission defaultPermissions = await DbContext.UserDefaultPreferredPermissions.SingleAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
 
         Group newGroup = new()
         {
@@ -224,28 +174,41 @@ public partial class MareHub
             HashedPassword = hashedPw,
             InvitesEnabled = true,
             OwnerUID = UserUID,
+            PreferDisableAnimations = defaultPermissions.DisableGroupAnimations,
+            PreferDisableSounds = defaultPermissions.DisableGroupSounds,
+            PreferDisableVFX = defaultPermissions.DisableGroupVFX
         };
 
         GroupPair initialPair = new()
         {
             GroupGID = newGroup.GID,
             GroupUserUID = UserUID,
-            IsPaused = false,
             IsPinned = true,
         };
 
-        await _dbContext.Groups.AddAsync(newGroup).ConfigureAwait(false);
-        await _dbContext.GroupPairs.AddAsync(initialPair).ConfigureAwait(false);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        GroupPairPreferredPermission initialPrefPermissions = new()
+        {
+            UserUID = UserUID,
+            GroupGID = newGroup.GID,
+            DisableSounds = defaultPermissions.DisableGroupSounds,
+            DisableAnimations = defaultPermissions.DisableGroupAnimations,
+            DisableVFX = defaultPermissions.DisableGroupAnimations
+        };
 
-        var self = await _dbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        await DbContext.Groups.AddAsync(newGroup).ConfigureAwait(false);
+        await DbContext.GroupPairs.AddAsync(initialPair).ConfigureAwait(false);
+        await DbContext.GroupPairPreferredPermissions.AddAsync(initialPrefPermissions).ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        await Clients.User(UserUID).Client_GroupSendFullInfo(new GroupFullInfoDto(newGroup.ToGroupData(), self.ToUserData(), GroupPermissions.NoneSet, GroupUserPermissions.NoneSet, GroupUserInfo.None))
+        var self = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+
+        await Clients.User(UserUID).Client_GroupSendFullInfo(new GroupFullInfoDto(newGroup.ToGroupData(), self.ToUserData(),
+            newGroup.ToEnum(), initialPrefPermissions.ToEnum(), initialPair.ToEnum(), new(StringComparer.Ordinal)))
             .ConfigureAwait(false);
 
         _logger.LogCallInfo(MareHubLogger.Args(gid));
 
-        return new GroupPasswordDto(newGroup.ToGroupData(), passwd);
+        return new GroupJoinDto(newGroup.ToGroupData(), passwd, initialPrefPermissions.ToEnum());
     }
 
     [Authorize(Policy = "Identified")]
@@ -257,7 +220,7 @@ public partial class MareHub
         var (hasRights, group) = await TryValidateGroupModeratorOrOwner(dto.Group.GID).ConfigureAwait(false);
         if (!hasRights) return new();
 
-        var existingInvites = await _dbContext.GroupTempInvites.Where(g => g.GroupGID == group.GID).ToListAsync().ConfigureAwait(false);
+        var existingInvites = await DbContext.GroupTempInvites.Where(g => g.GroupGID == group.GID).ToListAsync().ConfigureAwait(false);
 
         for (int i = 0; i < amount; i++)
         {
@@ -281,8 +244,8 @@ public partial class MareHub
             });
         }
 
-        _dbContext.GroupTempInvites.AddRange(tempInvites);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        DbContext.GroupTempInvites.AddRange(tempInvites);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         return inviteCodes;
     }
@@ -296,10 +259,10 @@ public partial class MareHub
 
         _logger.LogCallInfo(MareHubLogger.Args(dto, "Success"));
 
-        var groupPairs = await _dbContext.GroupPairs.Where(p => p.GroupGID == dto.Group.GID).ToListAsync().ConfigureAwait(false);
-        _dbContext.RemoveRange(groupPairs);
-        _dbContext.Remove(group);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        var groupPairs = await DbContext.GroupPairs.Where(p => p.GroupGID == dto.Group.GID).ToListAsync().ConfigureAwait(false);
+        DbContext.RemoveRange(groupPairs);
+        DbContext.Remove(group);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         await Clients.Users(groupPairs.Select(g => g.GroupUserUID)).Client_GroupDelete(new GroupDto(group.ToGroupData())).ConfigureAwait(false);
 
@@ -314,7 +277,7 @@ public partial class MareHub
         var (userHasRights, group) = await TryValidateGroupModeratorOrOwner(dto.GID).ConfigureAwait(false);
         if (!userHasRights) return new List<BannedGroupUserDto>();
 
-        var banEntries = await _dbContext.GroupBans.Include(b => b.BannedUser).Where(g => g.GroupGID == dto.Group.GID).AsNoTracking().ToListAsync().ConfigureAwait(false);
+        var banEntries = await DbContext.GroupBans.Include(b => b.BannedUser).Where(g => g.GroupGID == dto.Group.GID).AsNoTracking().ToListAsync().ConfigureAwait(false);
 
         List<BannedGroupUserDto> bannedGroupUsers = banEntries.Select(b =>
             new BannedGroupUserDto(group.ToGroupData(), b.BannedUser.ToUserData(), b.BannedReason, b.BannedOn,
@@ -326,20 +289,48 @@ public partial class MareHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<bool> GroupJoin(GroupPasswordDto dto)
+    public async Task<GroupJoinInfoDto> GroupJoin(GroupPasswordDto dto)
     {
         var aliasOrGid = dto.Group.GID.Trim();
 
-        _logger.LogCallInfo(MareHubLogger.Args(dto.Group));
+        _logger.LogCallInfo(MareHubLogger.Args(dto));
 
-        var group = await _dbContext.Groups.Include(g => g.Owner).AsNoTracking().SingleOrDefaultAsync(g => g.GID == aliasOrGid || g.Alias == aliasOrGid).ConfigureAwait(false);
+        var group = await DbContext.Groups.Include(g => g.Owner).AsNoTracking().SingleOrDefaultAsync(g => g.GID == aliasOrGid || g.Alias == aliasOrGid).ConfigureAwait(false);
         var groupGid = group?.GID ?? string.Empty;
-        var existingPair = await _dbContext.GroupPairs.AsNoTracking().SingleOrDefaultAsync(g => g.GroupGID == groupGid && g.GroupUserUID == UserUID).ConfigureAwait(false);
+        var existingPair = await DbContext.GroupPairs.AsNoTracking().SingleOrDefaultAsync(g => g.GroupGID == groupGid && g.GroupUserUID == UserUID).ConfigureAwait(false);
         var hashedPw = StringUtils.Sha256String(dto.Password);
-        var existingUserCount = await _dbContext.GroupPairs.AsNoTracking().CountAsync(g => g.GroupGID == groupGid).ConfigureAwait(false);
-        var joinedGroups = await _dbContext.GroupPairs.CountAsync(g => g.GroupUserUID == UserUID).ConfigureAwait(false);
-        var isBanned = await _dbContext.GroupBans.AnyAsync(g => g.GroupGID == groupGid && g.BannedUserUID == UserUID).ConfigureAwait(false);
-        var oneTimeInvite = await _dbContext.GroupTempInvites.SingleOrDefaultAsync(g => g.GroupGID == groupGid && g.Invite == hashedPw).ConfigureAwait(false);
+        var existingUserCount = await DbContext.GroupPairs.AsNoTracking().CountAsync(g => g.GroupGID == groupGid).ConfigureAwait(false);
+        var joinedGroups = await DbContext.GroupPairs.CountAsync(g => g.GroupUserUID == UserUID).ConfigureAwait(false);
+        var isBanned = await DbContext.GroupBans.AnyAsync(g => g.GroupGID == groupGid && g.BannedUserUID == UserUID).ConfigureAwait(false);
+        var oneTimeInvite = await DbContext.GroupTempInvites.SingleOrDefaultAsync(g => g.GroupGID == groupGid && g.Invite == hashedPw).ConfigureAwait(false);
+
+        if (group == null
+            || (!string.Equals(group.HashedPassword, hashedPw, StringComparison.Ordinal) && oneTimeInvite == null)
+            || existingPair != null
+            || existingUserCount >= _maxGroupUserCount
+            || !group.InvitesEnabled
+            || joinedGroups >= _maxJoinedGroupsByUser
+            || isBanned)
+            return new GroupJoinInfoDto(null, null, GroupPermissions.NoneSet, false);
+
+        return new GroupJoinInfoDto(group.ToGroupData(), group.Owner.ToUserData(), group.ToEnum(), true);
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<bool> GroupJoinFinalize(GroupJoinDto dto)
+    {
+        var aliasOrGid = dto.Group.GID.Trim();
+
+        _logger.LogCallInfo(MareHubLogger.Args(dto));
+
+        var group = await DbContext.Groups.Include(g => g.Owner).AsNoTracking().SingleOrDefaultAsync(g => g.GID == aliasOrGid || g.Alias == aliasOrGid).ConfigureAwait(false);
+        var groupGid = group?.GID ?? string.Empty;
+        var existingPair = await DbContext.GroupPairs.AsNoTracking().SingleOrDefaultAsync(g => g.GroupGID == groupGid && g.GroupUserUID == UserUID).ConfigureAwait(false);
+        var hashedPw = StringUtils.Sha256String(dto.Password);
+        var existingUserCount = await DbContext.GroupPairs.AsNoTracking().CountAsync(g => g.GroupGID == groupGid).ConfigureAwait(false);
+        var joinedGroups = await DbContext.GroupPairs.CountAsync(g => g.GroupUserUID == UserUID).ConfigureAwait(false);
+        var isBanned = await DbContext.GroupBans.AnyAsync(g => g.GroupGID == groupGid && g.BannedUserUID == UserUID).ConfigureAwait(false);
+        var oneTimeInvite = await DbContext.GroupTempInvites.SingleOrDefaultAsync(g => g.GroupGID == groupGid && g.Invite == hashedPw).ConfigureAwait(false);
 
         if (group == null
             || (!string.Equals(group.HashedPassword, hashedPw, StringComparison.Ordinal) && oneTimeInvite == null)
@@ -350,56 +341,159 @@ public partial class MareHub
             || isBanned)
             return false;
 
+        // get all pairs before we join
+        var allUserPairs = (await GetAllPairInfo(UserUID).ConfigureAwait(false));
+
         if (oneTimeInvite != null)
         {
             _logger.LogCallInfo(MareHubLogger.Args(aliasOrGid, "TempInvite", oneTimeInvite.Invite));
-            _dbContext.Remove(oneTimeInvite);
+            DbContext.Remove(oneTimeInvite);
         }
 
         GroupPair newPair = new()
         {
             GroupGID = group.GID,
             GroupUserUID = UserUID,
-            DisableAnimations = false,
-            DisableSounds = false,
-            DisableVFX = false
         };
 
-        await _dbContext.GroupPairs.AddAsync(newPair).ConfigureAwait(false);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        var preferredPermissions = await DbContext.GroupPairPreferredPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.GroupGID == group.GID).ConfigureAwait(false);
+        if (preferredPermissions == null)
+        {
+            GroupPairPreferredPermission newPerms = new()
+            {
+                GroupGID = group.GID,
+                UserUID = UserUID,
+                DisableSounds = dto.GroupUserPreferredPermissions.IsDisableSounds(),
+                DisableVFX = dto.GroupUserPreferredPermissions.IsDisableVFX(),
+                DisableAnimations = dto.GroupUserPreferredPermissions.IsDisableAnimations(),
+                IsPaused = false
+            };
+
+            DbContext.Add(newPerms);
+            preferredPermissions = newPerms;
+        }
+        else
+        {
+            preferredPermissions.DisableSounds = dto.GroupUserPreferredPermissions.IsDisableSounds();
+            preferredPermissions.DisableVFX = dto.GroupUserPreferredPermissions.IsDisableVFX();
+            preferredPermissions.DisableAnimations = dto.GroupUserPreferredPermissions.IsDisableAnimations();
+            preferredPermissions.IsPaused = false;
+            DbContext.Update(preferredPermissions);
+        }
+
+        await DbContext.GroupPairs.AddAsync(newPair).ConfigureAwait(false);
 
         _logger.LogCallInfo(MareHubLogger.Args(aliasOrGid, "Success"));
 
-        await Clients.User(UserUID).Client_GroupSendFullInfo(new GroupFullInfoDto(group.ToGroupData(), group.Owner.ToUserData(), group.GetGroupPermissions(), newPair.GetGroupPairPermissions(), newPair.GetGroupPairUserInfo())).ConfigureAwait(false);
+        var groupInfos = await DbContext.GroupPairs.Where(u => u.GroupGID == group.GID && (u.IsPinned || u.IsModerator)).ToListAsync().ConfigureAwait(false);
+        await Clients.User(UserUID).Client_GroupSendFullInfo(new GroupFullInfoDto(group.ToGroupData(), group.Owner.ToUserData(),
+            group.ToEnum(), preferredPermissions.ToEnum(), newPair.ToEnum(),
+            groupInfos.ToDictionary(u => u.GroupUserUID, u => u.ToEnum(), StringComparer.Ordinal))).ConfigureAwait(false);
 
-        var self = _dbContext.Users.Single(u => u.UID == UserUID);
+        var self = DbContext.Users.Single(u => u.UID == UserUID);
 
-        var groupPairs = await _dbContext.GroupPairs.Include(p => p.GroupUser).Where(p => p.GroupGID == group.GID && p.GroupUserUID != UserUID).ToListAsync().ConfigureAwait(false);
+        var groupPairs = await DbContext.GroupPairs.Include(p => p.GroupUser)
+            .Where(p => p.GroupGID == group.GID && p.GroupUserUID != UserUID).ToListAsync().ConfigureAwait(false);
 
-        await Clients.Users(groupPairs.Select(p => p.GroupUserUID))
-            .Client_GroupPairJoined(new GroupPairFullInfoDto(group.ToGroupData(), self.ToUserData(), newPair.GetGroupPairUserInfo(), newPair.GetGroupPairPermissions())).ConfigureAwait(false);
+        var userPairsAfterJoin = await GetAllPairInfo(UserUID).ConfigureAwait(false);
+
         foreach (var pair in groupPairs)
         {
-            await Clients.User(UserUID).Client_GroupPairJoined(new GroupPairFullInfoDto(group.ToGroupData(), pair.ToUserData(), pair.GetGroupPairUserInfo(), pair.GetGroupPairPermissions())).ConfigureAwait(false);
-        }
-
-        var allUserPairs = await GetAllPairedClientsWithPauseState().ConfigureAwait(false);
-
-        foreach (var groupUserPair in groupPairs)
-        {
-            var userPair = allUserPairs.Single(p => string.Equals(p.UID, groupUserPair.GroupUserUID, StringComparison.Ordinal));
-            if (userPair.IsDirectlyPaused != PauseInfo.NoConnection) continue;
-            if (userPair.IsPausedExcludingGroup(group.GID) is PauseInfo.Unpaused) continue;
-            if (userPair.IsPausedPerGroup is PauseInfo.Paused) continue;
-
-            var groupUserIdent = await GetUserIdent(groupUserPair.GroupUserUID).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(groupUserIdent))
+            var perms = userPairsAfterJoin.TryGetValue(pair.GroupUserUID, out var userinfo);
+            // check if we have had prior permissions to that pair, if not add them
+            var ownPermissionsToOther = userinfo?.OwnPermissions ?? null;
+            if (ownPermissionsToOther == null)
             {
-                await Clients.User(UserUID).Client_UserSendOnline(new(groupUserPair.ToUserData(), groupUserIdent)).ConfigureAwait(false);
-                await Clients.User(groupUserPair.GroupUserUID)
-                    .Client_UserSendOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
+                var existingPermissionsOnDb = await DbContext.Permissions.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == pair.GroupUserUID).ConfigureAwait(false);
+
+                if (existingPermissionsOnDb == null)
+                {
+                    ownPermissionsToOther = new()
+                    {
+                        UserUID = UserUID,
+                        OtherUserUID = pair.GroupUserUID,
+                        DisableAnimations = preferredPermissions.DisableAnimations,
+                        DisableSounds = preferredPermissions.DisableSounds,
+                        DisableVFX = preferredPermissions.DisableVFX,
+                        IsPaused = false,
+                        Sticky = false
+                    };
+
+                    await DbContext.Permissions.AddAsync(ownPermissionsToOther).ConfigureAwait(false);
+                }
+                else
+                {
+                    existingPermissionsOnDb.DisableAnimations = preferredPermissions.DisableAnimations;
+                    existingPermissionsOnDb.DisableSounds = preferredPermissions.DisableSounds;
+                    existingPermissionsOnDb.DisableVFX = preferredPermissions.DisableVFX;
+                    existingPermissionsOnDb.IsPaused = false;
+                    existingPermissionsOnDb.Sticky = false;
+
+                    DbContext.Update(existingPermissionsOnDb);
+
+                    ownPermissionsToOther = existingPermissionsOnDb;
+                }
+            }
+            else if (!ownPermissionsToOther.Sticky)
+            {
+                ownPermissionsToOther = await DbContext.Permissions.SingleAsync(u => u.UserUID == UserUID && u.OtherUserUID == pair.GroupUserUID).ConfigureAwait(false);
+
+                // update the existing permission only if it was not set to sticky
+                ownPermissionsToOther.DisableAnimations = preferredPermissions.DisableAnimations;
+                ownPermissionsToOther.DisableVFX = preferredPermissions.DisableVFX;
+                ownPermissionsToOther.DisableSounds = preferredPermissions.DisableSounds;
+                ownPermissionsToOther.IsPaused = false;
+
+                DbContext.Update(ownPermissionsToOther);
+            }
+
+            // get others permissionset to self and eventually update it
+            var otherPermissionToSelf = userinfo?.OtherPermissions ?? null;
+            if (otherPermissionToSelf == null)
+            {
+                var existingPermissionsOnDb = await DbContext.Permissions.SingleOrDefaultAsync(p => p.UserUID == pair.GroupUserUID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+
+                if (existingPermissionsOnDb == null)
+                {
+                    var otherPreferred = await DbContext.GroupPairPreferredPermissions.SingleAsync(u => u.GroupGID == group.GID && u.UserUID == pair.GroupUserUID).ConfigureAwait(false);
+                    existingPermissionsOnDb = new()
+                    {
+                        UserUID = pair.GroupUserUID,
+                        OtherUserUID = UserUID,
+                        DisableAnimations = otherPreferred.DisableAnimations,
+                        DisableSounds = otherPreferred.DisableSounds,
+                        DisableVFX = otherPreferred.DisableVFX,
+                        IsPaused = otherPreferred.IsPaused,
+                        Sticky = false
+                    };
+
+                    await DbContext.AddAsync(existingPermissionsOnDb).ConfigureAwait(false);
+                }
+
+                otherPermissionToSelf = existingPermissionsOnDb;
+            }
+
+            await Clients.User(UserUID).Client_GroupPairJoined(new GroupPairFullInfoDto(group.ToGroupData(),
+                pair.ToUserData(), ownPermissionsToOther.ToUserPermissions(setSticky: ownPermissionsToOther.Sticky),
+                otherPermissionToSelf.ToUserPermissions(setSticky: false))).ConfigureAwait(false);
+            await Clients.User(pair.GroupUserUID).Client_GroupPairJoined(new GroupPairFullInfoDto(group.ToGroupData(),
+                self.ToUserData(), otherPermissionToSelf.ToUserPermissions(setSticky: false),
+                ownPermissionsToOther.ToUserPermissions(setSticky: false))).ConfigureAwait(false);
+
+            // if not paired prior and neither has the permissions set to paused, send online
+            if ((!allUserPairs.ContainsKey(pair.GroupUserUID) || (allUserPairs.TryGetValue(pair.GroupUserUID, out var info) && !info.IsSynced))
+                && !otherPermissionToSelf.IsPaused && !ownPermissionsToOther.IsPaused)
+            {
+                var groupUserIdent = await GetUserIdent(pair.GroupUserUID).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(groupUserIdent))
+                {
+                    await Clients.User(UserUID).Client_UserSendOnline(new(pair.ToUserData(), groupUserIdent)).ConfigureAwait(false);
+                    await Clients.User(pair.GroupUserUID).Client_UserSendOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
+                }
             }
         }
+
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         return true;
     }
@@ -408,6 +502,37 @@ public partial class MareHub
     public async Task GroupLeave(GroupDto dto)
     {
         await UserLeaveGroup(dto, UserUID).ConfigureAwait(false);
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<int> GroupPrune(GroupDto dto, int days, bool execute)
+    {
+        _logger.LogCallInfo(MareHubLogger.Args(dto, days, execute));
+
+        var (hasRights, group) = await TryValidateGroupModeratorOrOwner(dto.Group.GID).ConfigureAwait(false);
+        if (!hasRights) return -1;
+
+        var allGroupUsers = await DbContext.GroupPairs.Include(p => p.GroupUser).Include(p => p.Group)
+            .Where(g => g.GroupGID == dto.Group.GID)
+            .ToListAsync().ConfigureAwait(false);
+        var usersToPrune = allGroupUsers.Where(p => !p.IsPinned && !p.IsModerator
+            && p.GroupUserUID != UserUID
+            && p.Group.OwnerUID != p.GroupUserUID
+            && p.GroupUser.LastLoggedIn.AddDays(days) < DateTime.UtcNow);
+
+        if (!execute) return usersToPrune.Count();
+
+        DbContext.GroupPairs.RemoveRange(usersToPrune);
+
+        foreach (var pair in usersToPrune)
+        {
+            await Clients.Users(allGroupUsers.Where(p => !usersToPrune.Contains(p)).Select(g => g.GroupUserUID))
+                .Client_GroupPairLeft(new GroupPairDto(dto.Group, pair.GroupUser.ToUserData())).ConfigureAwait(false);
+        }
+
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        return usersToPrune.Count();
     }
 
     [Authorize(Policy = "Identified")]
@@ -424,22 +549,26 @@ public partial class MareHub
         if (groupPair.IsModerator || string.Equals(group.OwnerUID, dto.User.UID, StringComparison.Ordinal)) return;
         _logger.LogCallInfo(MareHubLogger.Args(dto, "Success"));
 
-        _dbContext.GroupPairs.Remove(groupPair);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        DbContext.GroupPairs.Remove(groupPair);
 
-        var groupPairs = _dbContext.GroupPairs.Where(p => p.GroupGID == group.GID).AsNoTracking().ToList();
+        var groupPairs = DbContext.GroupPairs.Where(p => p.GroupGID == group.GID).AsNoTracking().ToList();
         await Clients.Users(groupPairs.Select(p => p.GroupUserUID)).Client_GroupPairLeft(dto).ConfigureAwait(false);
 
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
         var userIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
-        if (userIdent == null) return;
+        if (userIdent == null)
+        {
+            await DbContext.SaveChangesAsync().ConfigureAwait(false);
+            return;
+        }
 
         await Clients.User(dto.User.UID).Client_GroupDelete(new GroupDto(dto.Group)).ConfigureAwait(false);
 
-        var allUserPairs = await GetAllPairedClientsWithPauseState(dto.User.UID).ConfigureAwait(false);
-
+        var userPairs = await GetAllPairInfo(dto.User.UID).ConfigureAwait(false);
         foreach (var groupUserPair in groupPairs)
         {
-            await UserGroupLeave(groupUserPair, allUserPairs, userIdent, dto.User.UID).ConfigureAwait(false);
+            await UserGroupLeave(groupUserPair, userIdent, userPairs, dto.User.UID).ConfigureAwait(false);
         }
     }
 
@@ -454,7 +583,7 @@ public partial class MareHub
         var (userIsOwner, _) = await TryValidateOwner(dto.Group.GID).ConfigureAwait(false);
         var (userIsModerator, _) = await TryValidateGroupModeratorOrOwner(dto.Group.GID).ConfigureAwait(false);
 
-        if (dto.GroupUserInfo.HasFlag(GroupUserInfo.IsPinned) && userIsModerator && !userPair.IsPinned)
+        if (dto.GroupUserInfo.HasFlag(GroupPairUserInfo.IsPinned) && userIsModerator && !userPair.IsPinned)
         {
             userPair.IsPinned = true;
         }
@@ -463,7 +592,7 @@ public partial class MareHub
             userPair.IsPinned = false;
         }
 
-        if (dto.GroupUserInfo.HasFlag(GroupUserInfo.IsModerator) && userIsOwner && !userPair.IsModerator)
+        if (dto.GroupUserInfo.HasFlag(GroupPairUserInfo.IsModerator) && userIsOwner && !userPair.IsModerator)
         {
             userPair.IsModerator = true;
         }
@@ -472,10 +601,10 @@ public partial class MareHub
             userPair.IsModerator = false;
         }
 
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var groupPairs = await _dbContext.GroupPairs.AsNoTracking().Where(p => p.GroupGID == dto.Group.GID).Select(p => p.GroupUserUID).ToListAsync().ConfigureAwait(false);
-        await Clients.Users(groupPairs).Client_GroupPairChangeUserInfo(new GroupPairUserInfoDto(dto.Group, dto.User, userPair.GetGroupPairUserInfo())).ConfigureAwait(false);
+        var groupPairs = await DbContext.GroupPairs.AsNoTracking().Where(p => p.GroupGID == dto.Group.GID).Select(p => p.GroupUserUID).ToListAsync().ConfigureAwait(false);
+        await Clients.Users(groupPairs).Client_GroupPairChangeUserInfo(new GroupPairUserInfoDto(dto.Group, dto.User, userPair.ToEnum())).ConfigureAwait(false);
     }
 
     [Authorize(Policy = "Identified")]
@@ -483,23 +612,17 @@ public partial class MareHub
     {
         _logger.LogCallInfo();
 
-        var groups = await _dbContext.GroupPairs.Include(g => g.Group).Include(g => g.Group.Owner).Where(g => g.GroupUserUID == UserUID).AsNoTracking().ToListAsync().ConfigureAwait(false);
+        var groups = await DbContext.GroupPairs.Include(g => g.Group).Include(g => g.Group.Owner).Where(g => g.GroupUserUID == UserUID).AsNoTracking().ToListAsync().ConfigureAwait(false);
+        var preferredPermissions = (await DbContext.GroupPairPreferredPermissions.Where(u => u.UserUID == UserUID).ToListAsync().ConfigureAwait(false))
+            .Where(u => groups.Exists(k => string.Equals(k.GroupGID, u.GroupGID, StringComparison.Ordinal)))
+            .ToDictionary(u => groups.First(f => string.Equals(f.GroupGID, u.GroupGID, StringComparison.Ordinal)), u => u);
+        var groupInfos = await DbContext.GroupPairs.Where(u => groups.Select(g => g.GroupGID).Contains(u.GroupGID) && (u.IsPinned || u.IsModerator))
+            .ToListAsync().ConfigureAwait(false);
 
-        return groups.Select(g => new GroupFullInfoDto(g.Group.ToGroupData(), g.Group.Owner.ToUserData(),
-                g.Group.GetGroupPermissions(), g.GetGroupPairPermissions(), g.GetGroupPairUserInfo())).ToList();
-    }
-
-    [Authorize(Policy = "Identified")]
-    public async Task<List<GroupPairFullInfoDto>> GroupsGetUsersInGroup(GroupDto dto)
-    {
-        _logger.LogCallInfo(MareHubLogger.Args(dto));
-
-        var (inGroup, _) = await TryValidateUserInGroup(dto.Group.GID).ConfigureAwait(false);
-        if (!inGroup) return new List<GroupPairFullInfoDto>();
-
-        var group = await _dbContext.Groups.SingleAsync(g => g.GID == dto.Group.GID).ConfigureAwait(false);
-        var allPairs = await _dbContext.GroupPairs.Include(g => g.GroupUser).Where(g => g.GroupGID == dto.Group.GID && g.GroupUserUID != UserUID).AsNoTracking().ToListAsync().ConfigureAwait(false);
-        return allPairs.Select(p => new GroupPairFullInfoDto(group.ToGroupData(), p.GroupUser.ToUserData(), p.GetGroupPairUserInfo(), p.GetGroupPairPermissions())).ToList();
+        return preferredPermissions.Select(g => new GroupFullInfoDto(g.Key.Group.ToGroupData(), g.Key.Group.Owner.ToUserData(),
+                g.Key.Group.ToEnum(), g.Value.ToEnum(), g.Key.ToEnum(),
+                groupInfos.Where(i => string.Equals(i.GroupGID, g.Key.GroupGID, StringComparison.Ordinal))
+                .ToDictionary(i => i.GroupUserUID, i => i.ToEnum(), StringComparer.Ordinal))).ToList();
     }
 
     [Authorize(Policy = "Identified")]
@@ -510,11 +633,11 @@ public partial class MareHub
         var (userHasRights, _) = await TryValidateGroupModeratorOrOwner(dto.Group.GID).ConfigureAwait(false);
         if (!userHasRights) return;
 
-        var banEntry = await _dbContext.GroupBans.SingleOrDefaultAsync(g => g.GroupGID == dto.Group.GID && g.BannedUserUID == dto.User.UID).ConfigureAwait(false);
+        var banEntry = await DbContext.GroupBans.SingleOrDefaultAsync(g => g.GroupGID == dto.Group.GID && g.BannedUserUID == dto.User.UID).ConfigureAwait(false);
         if (banEntry == null) return;
 
-        _dbContext.Remove(banEntry);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        DbContext.Remove(banEntry);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         _logger.LogCallInfo(MareHubLogger.Args(dto, "Success"));
     }

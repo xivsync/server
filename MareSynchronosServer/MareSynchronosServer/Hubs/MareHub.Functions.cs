@@ -7,6 +7,7 @@ using MareSynchronos.API.Data;
 using MareSynchronos.API.Dto.Group;
 using MareSynchronosShared.Metrics;
 using Microsoft.AspNetCore.SignalR;
+using MareSynchronosShared.Data;
 
 namespace MareSynchronosServer.Hubs;
 
@@ -16,32 +17,37 @@ public partial class MareHub
 
     public string UserUID => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, MareClaimTypes.Uid, StringComparison.Ordinal))?.Value ?? throw new Exception("No UID in Claims");
 
+    public string Continent => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, MareClaimTypes.Continent, StringComparison.Ordinal))?.Value ?? "UNK";
+
     private async Task DeleteUser(User user)
     {
-        var ownPairData = await _dbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
-        var auth = await _dbContext.Auth.SingleAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var lodestone = await _dbContext.LodeStoneAuth.SingleOrDefaultAsync(a => a.User.UID == user.UID).ConfigureAwait(false);
-        var groupPairs = await _dbContext.GroupPairs.Where(g => g.GroupUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        var userProfileData = await _dbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var ownPairData = await DbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
+        var auth = await DbContext.Auth.SingleAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var lodestone = await DbContext.LodeStoneAuth.SingleOrDefaultAsync(a => a.User.UID == user.UID).ConfigureAwait(false);
+        var groupPairs = await DbContext.GroupPairs.Where(g => g.GroupUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var userProfileData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var defaultpermissions = await DbContext.UserDefaultPreferredPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var groupPermissions = await DbContext.GroupPairPreferredPermissions.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var individualPermissions = await DbContext.Permissions.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var bannedEntries = await DbContext.GroupBans.Where(u => u.BannedUserUID == user.UID).ToListAsync().ConfigureAwait(false);
 
         if (lodestone != null)
         {
-            _dbContext.Remove(lodestone);
+            DbContext.Remove(lodestone);
         }
 
         if (userProfileData != null)
         {
-            _dbContext.Remove(userProfileData);
+            DbContext.Remove(userProfileData);
         }
 
-        while (_dbContext.Files.Any(f => f.Uploader == user))
+        while (DbContext.Files.Any(f => f.Uploader == user))
         {
             await Task.Delay(1000).ConfigureAwait(false);
         }
 
-        _dbContext.ClientPairs.RemoveRange(ownPairData);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-        var otherPairData = await _dbContext.ClientPairs.Include(u => u.User)
+        DbContext.ClientPairs.RemoveRange(ownPairData);
+        var otherPairData = await DbContext.ClientPairs.Include(u => u.User)
             .Where(u => u.OtherUser.UID == user.UID).AsNoTracking().ToListAsync().ConfigureAwait(false);
         foreach (var pair in otherPairData)
         {
@@ -53,57 +59,27 @@ public partial class MareHub
             await UserLeaveGroup(new GroupDto(new GroupData(pair.GroupGID)), user.UID).ConfigureAwait(false);
         }
 
+        if (defaultpermissions != null)
+        {
+            DbContext.UserDefaultPreferredPermissions.Remove(defaultpermissions);
+        }
+        DbContext.GroupPairPreferredPermissions.RemoveRange(groupPermissions);
+        DbContext.Permissions.RemoveRange(individualPermissions);
+        DbContext.GroupBans.RemoveRange(bannedEntries);
+
         _mareMetrics.IncCounter(MetricsAPI.CounterUsersRegisteredDeleted, 1);
 
-        _dbContext.ClientPairs.RemoveRange(otherPairData);
-        _dbContext.Users.Remove(user);
-        _dbContext.Auth.Remove(auth);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-    }
-
-    private async Task<List<PausedEntry>> GetAllPairedClientsWithPauseState(string? uid = null)
-    {
-        uid ??= UserUID;
-
-        var query = await (from userPair in _dbContext.ClientPairs
-                           join otherUserPair in _dbContext.ClientPairs on userPair.OtherUserUID equals otherUserPair.UserUID
-                           where otherUserPair.OtherUserUID == uid && userPair.UserUID == uid
-                           select new
-                           {
-                               UID = Convert.ToString(userPair.OtherUserUID),
-                               GID = "DIRECT",
-                               PauseStateSelf = userPair.IsPaused,
-                               PauseStateOther = otherUserPair.IsPaused,
-                           })
-                            .Union(
-                                (from userGroupPair in _dbContext.GroupPairs
-                                 join otherGroupPair in _dbContext.GroupPairs on userGroupPair.GroupGID equals otherGroupPair.GroupGID
-                                 where
-                                     userGroupPair.GroupUserUID == uid
-                                     && otherGroupPair.GroupUserUID != uid
-                                 select new
-                                 {
-                                     UID = Convert.ToString(otherGroupPair.GroupUserUID),
-                                     GID = Convert.ToString(otherGroupPair.GroupGID),
-                                     PauseStateSelf = userGroupPair.IsPaused,
-                                     PauseStateOther = otherGroupPair.IsPaused,
-                                 })
-                            ).AsNoTracking().ToListAsync().ConfigureAwait(false);
-
-        return query.GroupBy(g => g.UID, g => (g.GID, g.PauseStateSelf, g.PauseStateOther),
-            (key, g) => new PausedEntry
-            {
-                UID = key,
-                PauseStates = g.Select(p => new PauseState() { GID = string.Equals(p.GID, "DIRECT", StringComparison.Ordinal) ? null : p.GID, IsSelfPaused = p.PauseStateSelf, IsOtherPaused = p.PauseStateOther })
-                .ToList(),
-            }, StringComparer.Ordinal).ToList();
+        DbContext.ClientPairs.RemoveRange(otherPairData);
+        DbContext.Users.Remove(user);
+        DbContext.Auth.Remove(auth);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
     }
 
     private async Task<List<string>> GetAllPairedUnpausedUsers(string? uid = null)
     {
         uid ??= UserUID;
-        var ret = await GetAllPairedClientsWithPauseState(uid).ConfigureAwait(false);
-        return ret.Where(k => !k.IsPaused).Select(k => k.UID).ToList();
+
+        return (await GetSyncedUnpausedOnlinePairs(UserUID).ConfigureAwait(false));
     }
 
     private async Task<Dictionary<string, string>> GetOnlineUsers(List<string> uids)
@@ -130,11 +106,11 @@ public partial class MareHub
             var pairIdent = await GetUserIdent(pair.GroupUserUID).ConfigureAwait(false);
             if (string.IsNullOrEmpty(pairIdent)) continue;
 
-            var pairs = await GetAllPairedClientsWithPauseState(pair.GroupUserUID).ConfigureAwait(false);
+            var pairInfo = await GetAllPairInfo(pair.GroupUserUID).ConfigureAwait(false);
 
             foreach (var groupUserPair in groupUsers.Where(g => !string.Equals(g.GroupUserUID, pair.GroupUserUID, StringComparison.Ordinal)))
             {
-                await UserGroupLeave(groupUserPair, pairs, pairIdent, pair.GroupUserUID).ConfigureAwait(false);
+                await UserGroupLeave(groupUserPair, pairIdent, pairInfo, pair.GroupUserUID).ConfigureAwait(false);
             }
         }
     }
@@ -142,7 +118,7 @@ public partial class MareHub
     private async Task<List<string>> SendOfflineToAllPairedUsers()
     {
         var usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        var self = await _dbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         await Clients.Users(usersToSendDataTo).Client_UserSendOffline(new(self.ToUserData())).ConfigureAwait(false);
 
         return usersToSendDataTo;
@@ -151,7 +127,7 @@ public partial class MareHub
     private async Task<List<string>> SendOnlineToAllPairedUsers()
     {
         var usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        var self = await _dbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         await Clients.Users(usersToSendDataTo).Client_UserSendOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
 
         return usersToSendDataTo;
@@ -164,7 +140,7 @@ public partial class MareHub
 
         if (isOwnerResult.ReferredGroup == null) return (false, null);
 
-        var groupPairSelf = await _dbContext.GroupPairs.SingleOrDefaultAsync(g => g.GroupGID == gid && g.GroupUserUID == UserUID).ConfigureAwait(false);
+        var groupPairSelf = await DbContext.GroupPairs.SingleOrDefaultAsync(g => g.GroupGID == gid && g.GroupUserUID == UserUID).ConfigureAwait(false);
         if (groupPairSelf == null || !groupPairSelf.IsModerator) return (false, null);
 
         return (true, isOwnerResult.ReferredGroup);
@@ -172,7 +148,7 @@ public partial class MareHub
 
     private async Task<(bool isValid, Group ReferredGroup)> TryValidateOwner(string gid)
     {
-        var group = await _dbContext.Groups.SingleOrDefaultAsync(g => g.GID == gid).ConfigureAwait(false);
+        var group = await DbContext.Groups.SingleOrDefaultAsync(g => g.GID == gid).ConfigureAwait(false);
         if (group == null) return (false, null);
 
         return (string.Equals(group.OwnerUID, UserUID, StringComparison.Ordinal), group);
@@ -182,7 +158,7 @@ public partial class MareHub
     {
         uid ??= UserUID;
 
-        var groupPair = await _dbContext.GroupPairs.Include(c => c.GroupUser)
+        var groupPair = await DbContext.GroupPairs.Include(c => c.GroupUser)
             .SingleOrDefaultAsync(g => g.GroupGID == gid && (g.GroupUserUID == uid || g.GroupUser.Alias == uid)).ConfigureAwait(false);
         if (groupPair == null) return (false, null);
 
@@ -194,21 +170,17 @@ public partial class MareHub
         await _redis.AddAsync("UID:" + UserUID, UserCharaIdent, TimeSpan.FromSeconds(60), StackExchange.Redis.When.Always, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
     }
 
-    private async Task UserGroupLeave(GroupPair groupUserPair, List<PausedEntry> allUserPairs, string userIdent, string? uid = null)
+    private async Task UserGroupLeave(GroupPair groupUserPair, string userIdent, Dictionary<string, UserInfo> allUserPairs, string? uid = null)
     {
         uid ??= UserUID;
-        var userPair = allUserPairs.SingleOrDefault(p => string.Equals(p.UID, groupUserPair.GroupUserUID, StringComparison.Ordinal));
-        if (userPair != null)
+        if (!allUserPairs.TryGetValue(groupUserPair.GroupUserUID, out var info) || !info.IsSynced)
         {
-            if (userPair.IsDirectlyPaused != PauseInfo.NoConnection) return;
-            if (userPair.IsPausedPerGroup is PauseInfo.Unpaused) return;
-        }
-
-        var groupUserIdent = await GetUserIdent(groupUserPair.GroupUserUID).ConfigureAwait(false);
-        if (!string.IsNullOrEmpty(groupUserIdent))
-        {
-            await Clients.User(uid).Client_UserSendOffline(new(new(groupUserPair.GroupUserUID))).ConfigureAwait(false);
-            await Clients.User(groupUserPair.GroupUserUID).Client_UserSendOffline(new(new(uid))).ConfigureAwait(false);
+            var groupUserIdent = await GetUserIdent(groupUserPair.GroupUserUID).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(groupUserIdent))
+            {
+                await Clients.User(uid).Client_UserSendOffline(new(new(groupUserPair.GroupUserUID))).ConfigureAwait(false);
+                await Clients.User(groupUserPair.GroupUserUID).Client_UserSendOffline(new(new(uid))).ConfigureAwait(false);
+            }
         }
     }
 
@@ -219,13 +191,13 @@ public partial class MareHub
         var (exists, groupPair) = await TryValidateUserInGroup(dto.Group.GID, userUid).ConfigureAwait(false);
         if (!exists) return;
 
-        var group = await _dbContext.Groups.SingleOrDefaultAsync(g => g.GID == dto.Group.GID).ConfigureAwait(false);
+        var group = await DbContext.Groups.SingleOrDefaultAsync(g => g.GID == dto.Group.GID).ConfigureAwait(false);
 
-        var groupPairs = await _dbContext.GroupPairs.Where(p => p.GroupGID == group.GID).ToListAsync().ConfigureAwait(false);
+        var groupPairs = await DbContext.GroupPairs.Where(p => p.GroupGID == group.GID).ToListAsync().ConfigureAwait(false);
         var groupPairsWithoutSelf = groupPairs.Where(p => !string.Equals(p.GroupUserUID, userUid, StringComparison.Ordinal)).ToList();
 
-        _dbContext.GroupPairs.Remove(groupPair);
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        DbContext.GroupPairs.Remove(groupPair);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         await Clients.User(userUid).Client_GroupDelete(new GroupDto(group.ToGroupData())).ConfigureAwait(false);
 
@@ -236,20 +208,20 @@ public partial class MareHub
             {
                 _logger.LogCallInfo(MareHubLogger.Args(dto, "Deleted"));
 
-                _dbContext.Groups.Remove(group);
+                DbContext.Groups.Remove(group);
             }
             else
             {
-                var groupHasMigrated = await SharedDbFunctions.MigrateOrDeleteGroup(_dbContext, group, groupPairsWithoutSelf, _maxExistingGroupsByUser).ConfigureAwait(false);
+                var groupHasMigrated = await SharedDbFunctions.MigrateOrDeleteGroup(DbContext, group, groupPairsWithoutSelf, _maxExistingGroupsByUser).ConfigureAwait(false);
 
                 if (groupHasMigrated.Item1)
                 {
                     _logger.LogCallInfo(MareHubLogger.Args(dto, "Migrated", groupHasMigrated.Item2));
 
-                    var user = await _dbContext.Users.SingleAsync(u => u.UID == groupHasMigrated.Item2).ConfigureAwait(false);
+                    var user = await DbContext.Users.SingleAsync(u => u.UID == groupHasMigrated.Item2).ConfigureAwait(false);
 
                     await Clients.Users(groupPairsWithoutSelf.Select(p => p.GroupUserUID)).Client_GroupSendInfo(new GroupInfoDto(group.ToGroupData(),
-                        user.ToUserData(), group.GetGroupPermissions())).ConfigureAwait(false);
+                        user.ToUserData(), group.ToEnum())).ConfigureAwait(false);
                 }
                 else
                 {
@@ -264,19 +236,252 @@ public partial class MareHub
             }
         }
 
-        await _dbContext.SaveChangesAsync().ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         _logger.LogCallInfo(MareHubLogger.Args(dto, "Success"));
 
         await Clients.Users(groupPairsWithoutSelf.Select(p => p.GroupUserUID)).Client_GroupPairLeft(new GroupPairDto(dto.Group, groupPair.GroupUser.ToUserData())).ConfigureAwait(false);
 
-        var allUserPairs = await GetAllPairedClientsWithPauseState().ConfigureAwait(false);
-
         var ident = await GetUserIdent(userUid).ConfigureAwait(false);
+
+        var pairs = await GetAllPairInfo(userUid).ConfigureAwait(false);
 
         foreach (var groupUserPair in groupPairsWithoutSelf)
         {
-            await UserGroupLeave(groupUserPair, allUserPairs, ident, userUid).ConfigureAwait(false);
+            await UserGroupLeave(groupUserPair, ident, pairs, userUid).ConfigureAwait(false);
         }
     }
+
+    private async Task<UserInfo?> GetPairInfo(string uid, string otheruid)
+    {
+        var clientPairs = from cp in DbContext.ClientPairs.AsNoTracking().Where(u => u.UserUID == uid && u.OtherUserUID == otheruid)
+                          join cp2 in DbContext.ClientPairs.AsNoTracking().Where(u => u.OtherUserUID == uid && u.UserUID == otheruid)
+                          on new
+                          {
+                              UserUID = cp.UserUID,
+                              OtherUserUID = cp.OtherUserUID
+                          }
+                          equals new
+                          {
+                              UserUID = cp2.OtherUserUID,
+                              OtherUserUID = cp2.UserUID
+                          } into joined
+                          from c in joined.DefaultIfEmpty()
+                          where cp.UserUID == uid
+                          select new
+                          {
+                              UserUID = cp.UserUID,
+                              OtherUserUID = cp.OtherUserUID,
+                              Gid = string.Empty,
+                              Synced = c != null
+                          };
+
+
+        var groupPairs = from gp in DbContext.GroupPairs.AsNoTracking().Where(u => u.GroupUserUID == uid)
+                         join gp2 in DbContext.GroupPairs.AsNoTracking().Where(u => u.GroupUserUID == otheruid)
+                         on new
+                         {
+                             GID = gp.GroupGID
+                         }
+                         equals new
+                         {
+                             GID = gp2.GroupGID
+                         }
+                         where gp.GroupUserUID == uid
+                         select new
+                         {
+                             UserUID = gp.GroupUserUID,
+                             OtherUserUID = gp2.GroupUserUID,
+                             Gid = Convert.ToString(gp2.GroupGID),
+                             Synced = true
+                         };
+
+        var allPairs = clientPairs.Concat(groupPairs);
+
+        var result = from user in allPairs
+                     join u in DbContext.Users.AsNoTracking() on user.OtherUserUID equals u.UID
+                     join o in DbContext.Permissions.AsNoTracking().Where(u => u.UserUID == uid)
+                        on new { UserUID = user.UserUID, OtherUserUID = user.OtherUserUID }
+                        equals new { UserUID = o.UserUID, OtherUserUID = o.OtherUserUID }
+                        into ownperms
+                     from ownperm in ownperms.DefaultIfEmpty()
+                     join p in DbContext.Permissions.AsNoTracking().Where(u => u.OtherUserUID == uid)
+                        on new { UserUID = user.OtherUserUID, OtherUserUID = user.UserUID }
+                        equals new { UserUID = p.UserUID, OtherUserUID = p.OtherUserUID }
+                        into otherperms
+                     from otherperm in otherperms.DefaultIfEmpty()
+                     where user.UserUID == uid
+                        && u.UID == user.OtherUserUID
+                        && ownperm.UserUID == user.UserUID && ownperm.OtherUserUID == user.OtherUserUID
+                        && (otherperm == null || (otherperm.OtherUserUID == user.UserUID && otherperm.UserUID == user.OtherUserUID))
+                     select new
+                     {
+                         UserUID = user.UserUID,
+                         OtherUserUID = user.OtherUserUID,
+                         OtherUserAlias = u.Alias,
+                         GID = user.Gid,
+                         Synced = user.Synced,
+                         OwnPermissions = ownperm,
+                         OtherPermissions = otherperm
+                     };
+
+        var resultList = await result.AsNoTracking().ToListAsync().ConfigureAwait(false);
+
+        if (!resultList.Any()) return null;
+
+        var groups = resultList.Select(g => g.GID).ToList();
+        return new UserInfo(resultList[0].OtherUserAlias,
+            resultList.SingleOrDefault(p => string.IsNullOrEmpty(p.GID))?.Synced ?? false,
+            resultList.Max(p => p.Synced),
+            resultList.Select(p => string.IsNullOrEmpty(p.GID) ? Constants.IndividualKeyword : p.GID).ToList(),
+            resultList[0].OwnPermissions,
+            resultList[0].OtherPermissions);
+    }
+
+    private async Task<Dictionary<string, UserInfo>> GetAllPairInfo(string uid)
+    {
+        var clientPairs = from cp in DbContext.ClientPairs.AsNoTracking().Where(u => u.UserUID == uid)
+                          join cp2 in DbContext.ClientPairs.AsNoTracking().Where(u => u.OtherUserUID == uid)
+                          on new
+                          {
+                              UserUID = cp.UserUID,
+                              OtherUserUID = cp.OtherUserUID
+                          }
+                          equals new
+                          {
+                              UserUID = cp2.OtherUserUID,
+                              OtherUserUID = cp2.UserUID
+                          } into joined
+                          from c in joined.DefaultIfEmpty()
+                          where cp.UserUID == uid
+                          select new
+                          {
+                              UserUID = cp.UserUID,
+                              OtherUserUID = cp.OtherUserUID,
+                              Gid = string.Empty,
+                              Synced = c != null
+                          };
+
+
+        var groupPairs = from gp in DbContext.GroupPairs.AsNoTracking().Where(u => u.GroupUserUID == uid)
+                         join gp2 in DbContext.GroupPairs.AsNoTracking().Where(u => u.GroupUserUID != uid)
+                         on new
+                         {
+                             GID = gp.GroupGID
+                         }
+                         equals new
+                         {
+                             GID = gp2.GroupGID
+                         }
+                         select new
+                         {
+                             UserUID = gp.GroupUserUID,
+                             OtherUserUID = gp2.GroupUserUID,
+                             Gid = Convert.ToString(gp2.GroupGID),
+                             Synced = true
+                         };
+
+        var allPairs = clientPairs.Concat(groupPairs);
+
+        var result = from user in allPairs
+                     join u in DbContext.Users.AsNoTracking() on user.OtherUserUID equals u.UID
+                     join o in DbContext.Permissions.AsNoTracking().Where(u => u.UserUID == uid)
+                        on new { UserUID = user.UserUID, OtherUserUID = user.OtherUserUID }
+                        equals new { UserUID = o.UserUID, OtherUserUID = o.OtherUserUID }
+                        into ownperms
+                     from ownperm in ownperms.DefaultIfEmpty()
+                     join p in DbContext.Permissions.AsNoTracking().Where(u => u.OtherUserUID == uid)
+                        on new { UserUID = user.OtherUserUID, OtherUserUID = user.UserUID }
+                        equals new { UserUID = p.UserUID, OtherUserUID = p.OtherUserUID }
+                        into otherperms
+                     from otherperm in otherperms.DefaultIfEmpty()
+                     where user.UserUID == uid
+                        && u.UID == user.OtherUserUID
+                        && ownperm.UserUID == user.UserUID && ownperm.OtherUserUID == user.OtherUserUID
+                        && (otherperm == null || (otherperm.OtherUserUID == user.UserUID && otherperm.UserUID == user.OtherUserUID))
+                     select new
+                     {
+                         UserUID = user.UserUID,
+                         OtherUserUID = user.OtherUserUID,
+                         OtherUserAlias = u.Alias,
+                         GID = user.Gid,
+                         Synced = user.Synced,
+                         OwnPermissions = ownperm,
+                         OtherPermissions = otherperm
+                     };
+
+        var resultList = await result.AsNoTracking().ToListAsync().ConfigureAwait(false);
+        return resultList.GroupBy(g => g.OtherUserUID, StringComparer.Ordinal).ToDictionary(g => g.Key, g =>
+        {
+            return new UserInfo(g.First().OtherUserAlias,
+                g.SingleOrDefault(p => string.IsNullOrEmpty(p.GID))?.Synced ?? false,
+                g.Max(p => p.Synced),
+                g.Select(p => string.IsNullOrEmpty(p.GID) ? Constants.IndividualKeyword : p.GID).ToList(),
+                g.First().OwnPermissions,
+                g.First().OtherPermissions);
+        }, StringComparer.Ordinal);
+    }
+
+    private async Task<List<string>> GetSyncedUnpausedOnlinePairs(string uid)
+    {
+        var clientPairs = from cp in DbContext.ClientPairs.AsNoTracking().Where(u => u.UserUID == uid)
+                          join cp2 in DbContext.ClientPairs.AsNoTracking().Where(u => u.OtherUserUID == uid)
+                          on new
+                          {
+                              UserUID = cp.UserUID,
+                              OtherUserUID = cp.OtherUserUID
+                          }
+                          equals new
+                          {
+                              UserUID = cp2.OtherUserUID,
+                              OtherUserUID = cp2.UserUID
+                          } into joined
+                          from c in joined.DefaultIfEmpty()
+                          where cp.UserUID == uid && c.UserUID != null
+                          select new
+                          {
+                              UserUID = cp.UserUID,
+                              OtherUserUID = cp.OtherUserUID,
+                          };
+
+
+        var groupPairs = from gp in DbContext.GroupPairs.AsNoTracking().Where(u => u.GroupUserUID == uid)
+                         join gp2 in DbContext.GroupPairs.AsNoTracking().Where(u => u.GroupUserUID != uid)
+                         on new
+                         {
+                             GID = gp.GroupGID
+                         }
+                         equals new
+                         {
+                             GID = gp2.GroupGID
+                         }
+                         select new
+                         {
+                             UserUID = gp.GroupUserUID,
+                             OtherUserUID = gp2.GroupUserUID,
+                         };
+
+        var allPairs = clientPairs.Concat(groupPairs);
+
+        var result = from user in allPairs
+                     join o in DbContext.Permissions.AsNoTracking().Where(u => u.UserUID == uid)
+                        on new { UserUID = user.UserUID, OtherUserUID = user.OtherUserUID }
+                        equals new { UserUID = o.UserUID, OtherUserUID = o.OtherUserUID }
+                        into ownperms
+                     from ownperm in ownperms.DefaultIfEmpty()
+                     join p in DbContext.Permissions.AsNoTracking().Where(u => u.OtherUserUID == uid)
+                        on new { UserUID = user.OtherUserUID, OtherUserUID = user.UserUID }
+                        equals new { UserUID = p.UserUID, OtherUserUID = p.OtherUserUID }
+                        into otherperms
+                     from otherperm in otherperms.DefaultIfEmpty()
+                     where user.UserUID == uid
+                        && ownperm.UserUID == user.UserUID && ownperm.OtherUserUID == user.OtherUserUID
+                        && otherperm.OtherUserUID == user.UserUID && otherperm.UserUID == user.OtherUserUID
+                        && !ownperm.IsPaused && (otherperm == null ? false : !otherperm.IsPaused)
+                     select user.OtherUserUID;
+
+        return await result.Distinct().AsNoTracking().ToListAsync().ConfigureAwait(false);
+    }
+
+    public record UserInfo(string Alias, bool IndividuallyPaired, bool IsSynced, List<string> GIDs, UserPermissionSet? OwnPermissions, UserPermissionSet? OtherPermissions);
 }

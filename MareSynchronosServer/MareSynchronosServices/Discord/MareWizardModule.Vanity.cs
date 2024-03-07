@@ -13,15 +13,17 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}", nameof(ComponentVanity), Context.Interaction.User.Id);
+
         StringBuilder sb = new();
         var user = await Context.Guild.GetUserAsync(Context.User.Id).ConfigureAwait(false);
-        bool userIsInVanityRole = _botServices.VanityRoles.Exists(u => user.RoleIds.Contains(u.Id)) || !_botServices.VanityRoles.Any();
+        bool userIsInVanityRole = _botServices.VanityRoles.Keys.Any(u => user.RoleIds.Contains(u.Id)) || !_botServices.VanityRoles.Any();
         if (!userIsInVanityRole)
         {
             sb.AppendLine("To be able to set Vanity IDs you must have one of the following roles:");
             foreach (var role in _botServices.VanityRoles)
             {
-                sb.Append("- ").AppendLine(role.Mention);
+                sb.Append("- ").Append(role.Key.Mention).Append(" (").Append(role.Value).AppendLine(")");
             }
         }
         else
@@ -52,6 +54,8 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionVanityUid), Context.Interaction.User.Id, uid);
+
         using var db = GetDbContext();
         var user = db.Users.Single(u => u.UID == uid);
         EmbedBuilder eb = new();
@@ -71,6 +75,8 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionVanityUidSet), Context.Interaction.User.Id, uid);
+
         await RespondWithModalAsync<VanityUidModal>("wizard-vanity-uid-modal:" + uid).ConfigureAwait(false);
     }
 
@@ -78,6 +84,8 @@ public partial class MareWizardModule
     public async Task ConfirmVanityUidModal(string uid, VanityUidModal modal)
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
+
+        _logger.LogInformation("{method}:{userId}:{uid}:{vanity}", nameof(ConfirmVanityUidModal), Context.Interaction.User.Id, uid, modal.DesiredVanityUID);
 
         EmbedBuilder eb = new();
         ComponentBuilder cb = new();
@@ -121,6 +129,8 @@ public partial class MareWizardModule
     [ComponentInteraction("wizard-vanity-gid")]
     public async Task SelectionVanityGid(string gid)
     {
+        _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionVanityGid), Context.Interaction.User.Id, gid);
+
         using var db = GetDbContext();
         var group = db.Groups.Single(u => u.GID == gid);
         EmbedBuilder eb = new();
@@ -140,6 +150,8 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}:{gid}", nameof(SelectionVanityGidSet), Context.Interaction.User.Id, gid);
+
         await RespondWithModalAsync<VanityGidModal>("wizard-vanity-gid-modal:" + gid).ConfigureAwait(false);
     }
 
@@ -148,13 +160,15 @@ public partial class MareWizardModule
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
+        _logger.LogInformation("{method}:{userId}:{gid}:{vanity}", nameof(ConfirmVanityGidModal), Context.Interaction.User.Id, gid, modal.DesiredVanityGID);
+
         EmbedBuilder eb = new();
         ComponentBuilder cb = new();
         var desiredVanityUid = modal.DesiredVanityGID;
         using var db = GetDbContext();
         bool canAddVanityId = !db.Groups.Any(u => u.GID == modal.DesiredVanityGID || u.Alias == modal.DesiredVanityGID);
 
-        Regex rgx = new(@"^[_\-a-zA-Z0-9]{5,15}$", RegexOptions.ECMAScript);
+        Regex rgx = new(@"^[_\-a-zA-Z0-9]{5,20}$", RegexOptions.ECMAScript);
         if (!rgx.Match(desiredVanityUid).Success)
         {
             eb.WithColor(Color.Red);
