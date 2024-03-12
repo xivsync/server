@@ -17,12 +17,82 @@ public class MareCensus : IHostedService
     }
 
     private readonly ConcurrentDictionary<string, CensusEntry> _censusEntries = new(StringComparer.Ordinal);
-    private readonly Dictionary<short, string> _dcs = new();
+    private readonly Dictionary<short, string> _dcs = new()
+    {
+        {101, "陆行鸟"},
+        {102, "莫古力"},
+        {103, "猫小胖"},
+        {201, "豆豆柴"},
+    };
     private readonly Dictionary<short, string> _gender = new();
     private readonly ILogger<MareCensus> _logger;
-    private readonly Dictionary<short, string> _races = new();
-    private readonly Dictionary<short, string> _tribes = new();
-    private readonly Dictionary<ushort, (string, short)> _worlds = new();
+    private readonly Dictionary<short, string> _races = new()
+    {
+        {1,"中原之民"},
+        {2,"高地之民"},
+        {3,"森林之民"},
+        {4,"黑影之民"},
+        {5,"平原之民"},
+        {6,"沙漠之民"},
+        {7,"逐日之民"},
+        {8,"护月之民"},
+        {9,"北洋之民"},
+        {10,"红焰之民"},
+        {11,"晨曦之民"},
+        {12,"暮晖之民"},
+        {13,"掠日之民"},
+        {14,"迷踪之民"},
+        {15,"密林之民"},
+        {16,"山林之民"},
+    };
+    private readonly Dictionary<short, string> _tribes = new()
+    {
+        {1,"人族"},
+        {2,"精灵族"},
+        {3,"拉拉菲尔族"},
+        {4,"猫魅族"},
+        {5,"鲁加族"},
+        {6,"敖龙族"},
+        {7,"硌狮族"},
+        {8,"维埃拉族"},
+    };
+    private readonly Dictionary<ushort, (string, short)> _worlds = new()
+    {
+        {1175, ("晨曦王座", 101) },
+        {1174, ("沃仙曦染", 101) },
+        {1173, ("宇宙和音", 101) },
+        {1167, ("红玉海", 101)   },
+        {1060, ("萌芽池", 101)   },
+        {1081, ("神意之地", 101) },
+        {1044, ("幻影群岛", 101) },
+        {1042, ("拉诺西亚", 101) },
+
+        {1121, ("拂晓之间", 102) },
+        {1166, ("龙巢神殿", 102) },
+        {1113, ("旅人栈桥", 102) },
+        {1076, ("白金幻象", 102) },
+        {1176, ("梦羽宝境", 102) },
+        {1171, ("神拳痕", 102)   },
+        {1170, ("潮风亭", 102)   },
+        {1172, ("白银乡", 102)   },
+
+        {1179, ("琥珀原", 103)   },
+        {1178, ("柔风海湾", 103) },
+        {1177, ("海猫茶屋", 103) },
+        {1169, ("延夏", 103)    },
+        {1106, ("静语庄园", 103) },
+        {1045, ("摩杜纳", 103)   },
+        {1043, ("紫水栈桥", 103) },
+
+        {1201, ("红茶川", 201)    },
+        {1186, ("伊修加德", 201)  },
+        {1180, ("太阳海岸", 201)  },
+        {1183, ("银泪湖", 201)    },
+        {1192, ("水晶塔", 201)    },
+        {1202, ("萨雷安", 201)    },
+        {1203, ("加雷马", 201)    },
+        {1200, ("亚马乌罗提", 201)},
+    };
     private readonly string _xivApiKey;
     private Gauge? _gauge;
 
@@ -68,73 +138,12 @@ public class MareCensus : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(_xivApiKey)) return;
+        //if (string.IsNullOrEmpty(_xivApiKey)) return;
 
-        _logger.LogInformation("Loading XIVAPI data");
+        _logger.LogInformation("Census:Init data");
 
-        using HttpClient client = new HttpClient();
-
-        Dictionary<ushort, short> worldDcs = new();
-        var dcs = await client.GetStringAsync("https://xivapi.com/worlddcgrouptype?private_key" + _xivApiKey, cancellationToken).ConfigureAwait(false);
-        using var dcsJson = JsonSerializer.Deserialize<JsonElement>(dcs).GetProperty("Results").EnumerateArray();
-
-        foreach (var dcValue in dcsJson)
-        {
-            var id = dcValue.GetProperty("ID").GetInt16();
-            var name = dcValue.GetProperty("Name").GetString();
-            _dcs[id] = name;
-            _logger.LogInformation("DC: ID: {id}, Name: {name}", id, name);
-            var dcData = await client.GetStringAsync("https://xivapi.com/worlddcgrouptype/" + id.ToString(CultureInfo.InvariantCulture) + "?private_key=" + _xivApiKey, cancellationToken).ConfigureAwait(false);
-            if (JsonSerializer.Deserialize<JsonElement>(dcData).TryGetProperty("GameContentLinks", out var gameContentLinks))
-            {
-                if (gameContentLinks.ValueKind == JsonValueKind.Object && gameContentLinks.TryGetProperty("World", out var worldProp))
-                {
-                    using var json = worldProp.GetProperty("DataCenter").EnumerateArray();
-                    foreach (var world in json)
-                    {
-                        worldDcs[(ushort)world.GetInt32()] = id;
-                    }
-                }
-            }
-
-            await Task.Delay(TimeSpan.FromMilliseconds(100)).ConfigureAwait(false);
-        }
-
-        var worlds = await client.GetStringAsync("https://xivapi.com/world?limit=1000&private_key" + _xivApiKey, cancellationToken).ConfigureAwait(false);
-        using var worldJson = JsonSerializer.Deserialize<JsonElement>(worlds).GetProperty("Results").EnumerateArray();
-        foreach (var worldValue in worldJson)
-        {
-            var id = (ushort)worldValue.GetProperty("ID").GetInt32();
-            var name = worldValue.GetProperty("Name").GetString();
-            if (worldDcs.TryGetValue(id, out var dc))
-            {
-                _worlds[(ushort)id] = (name, dc);
-                _logger.LogInformation("World: ID: {id}, Name: {name}, DC: {dc}", id, name, dc);
-            }
-        }
-
-        var races = await client.GetStringAsync("https://xivapi.com/race?private_key" + _xivApiKey, cancellationToken).ConfigureAwait(false);
-        using var racesJson = JsonSerializer.Deserialize<JsonElement>(races).GetProperty("Results").EnumerateArray();
-        foreach (var racesValue in racesJson)
-        {
-            var id = racesValue.GetProperty("ID").GetInt16();
-            var name = racesValue.GetProperty("Name").GetString();
-            _races[id] = name;
-            _logger.LogInformation("Race: ID: {id}, Name: {name}", id, name);
-        }
-
-        var tribe = await client.GetStringAsync("https://xivapi.com/tribe?private_key=" + _xivApiKey, cancellationToken).ConfigureAwait(false);
-        using var tribeJson = JsonSerializer.Deserialize<JsonElement>(tribe).GetProperty("Results").EnumerateArray();
-        foreach (var tribeValue in tribeJson)
-        {
-            var id = tribeValue.GetProperty("ID").GetInt16();
-            var name = tribeValue.GetProperty("Name").GetString();
-            _tribes[id] = name;
-            _logger.LogInformation("Tribe: ID: {id}, Name: {name}", id, name);
-        }
-
-        _gender[0] = "Male";
-        _gender[1] = "Female";
+        _gender[0] = "男";
+        _gender[1] = "女";
 
         _gauge = Metrics.CreateGauge("mare_census", "mare informational census data", new[] { "dc", "world", "gender", "race", "subrace" });
     }
