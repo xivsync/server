@@ -36,7 +36,7 @@
         "DiscordChannelForCommands": "",
         "Jwt": "teststringteststringteststringteststringteststringteststringteststringteststringteststringteststring",
         "RedisConnectionString": "redis,password=secretredispassword",
-        "VanityRoles": {"1189814513059500072":"Admin", "1012008556259725398":"Mare CN user"}
+        "VanityRoles": {"1189814513059500072":"Admin", "1192054279226261535":"Mare CN user"}
     },
     "AllowedHosts": "*",
     "Kestrel": {
