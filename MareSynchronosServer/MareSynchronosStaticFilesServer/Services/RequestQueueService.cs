@@ -1,5 +1,6 @@
 ﻿using MareSynchronosShared.Metrics;
 using MareSynchronosShared.Services;
+using MareSynchronosShared.Utils.Configuration;
 using MareSynchronosStaticFilesServer.Utils;
 using System.Collections.Concurrent;
 using System.Timers;
@@ -98,7 +99,7 @@ public class RequestQueueService : IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _queueTimer = new System.Timers.Timer(250);
+        _queueTimer = new System.Timers.Timer(500);
         _queueTimer.Elapsed += ProcessQueue;
         _queueTimer.AutoReset = true;
         _queueTimer.Start();
@@ -169,19 +170,37 @@ public class RequestQueueService : IHostedService
 
                     while (true)
                     {
-                        if (_priorityQueue.TryDequeue(out var prioRequest))
+                        if (!_priorityQueue.All(u => _cachedFileProvider.AnyFilesDownloading(u.FileIds))
+                            && _priorityQueue.TryDequeue(out var prioRequest))
                         {
-                            if (prioRequest.IsCancelled) continue;
-                            if (_cachedFileProvider.AnyFilesDownloading(prioRequest.FileIds)) continue;
+                            if (prioRequest.IsCancelled)
+                            {
+                                continue;
+                            }
+
+                            if (_cachedFileProvider.AnyFilesDownloading(prioRequest.FileIds))
+                            {
+                                _priorityQueue.Enqueue(prioRequest);
+                                continue;
+                            }
 
                             DequeueIntoSlot(prioRequest, i);
                             break;
                         }
 
-                        if (_queue.TryDequeue(out var request))
+                        if (!_queue.All(u => _cachedFileProvider.AnyFilesDownloading(u.FileIds))
+                            && _queue.TryDequeue(out var request))
                         {
-                            if (request.IsCancelled) continue;
-                            if (_cachedFileProvider.AnyFilesDownloading(request.FileIds)) continue;
+                            if (request.IsCancelled)
+                            {
+                                continue;
+                            }
+
+                            if (_cachedFileProvider.AnyFilesDownloading(request.FileIds))
+                            {
+                                _queue.Enqueue(request);
+                                continue;
+                            }
 
                             DequeueIntoSlot(request, i);
                             break;

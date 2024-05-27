@@ -1,5 +1,5 @@
 ﻿using MareSynchronosShared.Utils;
-using MareSynchronosStaticFilesServer;
+using MareSynchronosShared.Utils.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -27,8 +27,8 @@ public class MareConfigurationServiceClient<T> : IHostedService, IConfigurationS
     {
         if (_config.CurrentValue.GetType() == typeof(ServerConfiguration))
             return new Uri((_config.CurrentValue as ServerConfiguration).MainServerAddress, $"configuration/MareServerConfiguration/{nameof(MareServerConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
-        if (_config.CurrentValue.GetType() == typeof(MareConfigurationAuthBase))
-            return new Uri((_config.CurrentValue as MareConfigurationAuthBase).MainServerAddress, $"configuration/MareAuthBaseConfiguration/{nameof(MareAuthBaseConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
+        if (_config.CurrentValue.GetType() == typeof(MareConfigurationBase))
+            return new Uri((_config.CurrentValue as MareConfigurationBase).MainServerAddress, $"configuration/MareBaseConfiguration/{nameof(MareBaseConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
         if (_config.CurrentValue.GetType() == typeof(ServicesConfiguration))
             return new Uri((_config.CurrentValue as ServicesConfiguration).MainServerAddress, $"configuration/MareServicesConfiguration/{nameof(MareServicesConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
         if (_config.CurrentValue.GetType() == typeof(StaticFilesServerConfiguration))
@@ -107,9 +107,9 @@ public class MareConfigurationServiceClient<T> : IHostedService, IConfigurationS
         try
         {
             _logger.LogInformation("Getting {key} from Http", key);
-            HttpRequestMessage msg = new(HttpMethod.Get, GetRoute(key, Convert.ToString(defaultValue, CultureInfo.InvariantCulture)));
+            using HttpRequestMessage msg = new(HttpMethod.Get, GetRoute(key, Convert.ToString(defaultValue, CultureInfo.InvariantCulture)));
             msg.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
-            var response = await _httpClient.SendAsync(msg).ConfigureAwait(false);
+            using var response = await _httpClient.SendAsync(msg).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             _logger.LogInformation("Http Response for {key} = {value}", key, content);
