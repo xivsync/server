@@ -132,6 +132,8 @@ public partial class MareWizardModule
                                              + Environment.NewLine + Environment.NewLine
                                              + "在 Mare Synchronos 中输入此密钥并点击“保存”以连接到该服务。"
                                              + Environment.NewLine
+                                             + "__注意: 密钥仅包括英文 ABCDEF 和数字 0 - 9.__"
+                                             + Environment.NewLine
                                              + "您应该尽快连接，以免被自动清理。"
                                              + Environment.NewLine
                                              + "玩得开心。");
@@ -272,22 +274,23 @@ public partial class MareWizardModule
         user.LastLoggedIn = DateTime.UtcNow;
 
         var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        string hashedKey = StringUtils.Sha256String(computedHash);
         var auth = new Auth()
         {
-            HashedKey = StringUtils.Sha256String(computedHash),
+            HashedKey = hashedKey,
             User = user,
         };
 
         await db.Users.AddAsync(user).ConfigureAwait(false);
         await db.Auth.AddAsync(auth).ConfigureAwait(false);
 
-        _botServices.Logger.LogInformation("User registered: {userUID}", user.UID);
-
         lodestoneAuth.StartedAt = null;
         lodestoneAuth.User = user;
         lodestoneAuth.LodestoneAuthString = null;
 
         await db.SaveChangesAsync().ConfigureAwait(false);
+
+        _botServices.Logger.LogInformation("User registered: {userUID}:{hashedKey}", user.UID, hashedKey);
 
         _botServices.DiscordVerifiedUsers.Remove(Context.User.Id, out _);
 
