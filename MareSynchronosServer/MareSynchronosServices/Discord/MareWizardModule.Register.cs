@@ -145,6 +145,7 @@ public partial class MareWizardModule
                 eb.WithTitle("验证注册失败");
                 eb.WithDescription("机器人无法在您的石之家个人资料中找到所需的验证码。" + Environment.NewLine + Environment.NewLine
                     + "请重新启动您的验证过程，并确保 _提交您的个人资料_ 以便正确保存。" + Environment.NewLine + Environment.NewLine
+                    + "**请确保你的个人资料对所有人公开，否则机器人将无法正常读取。" + Environment.NewLine + Environment.NewLine
                     + "机器人正在寻找的代码是" + Environment.NewLine + Environment.NewLine
                     + "**" + verificationCode + "**");
                 cb.WithButton("取消", "wizard-register", emote: new Emoji("❌"));
@@ -228,7 +229,7 @@ public partial class MareWizardModule
             var url = $"https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={services.DiscordLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20";
             var response = await req.GetAsync(url).ConfigureAwait(false);
             _logger.LogInformation("Verifying {userid} with URL {url}", userid, url);
-            if (response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 if (content.Contains(authString))
@@ -240,7 +241,8 @@ public partial class MareWizardModule
                 else
                 {
                     services.DiscordVerifiedUsers[userid] = false;
-                    _logger.LogInformation("Could not verify {userid} from lodestone {lodestone}, did not find authString: {authString}", userid, services.DiscordLodestoneMapping[userid], authString);
+                    _logger.LogInformation("Could not verify {userid} from lodestone {lodestone}, did not find authString: {authString}, status code was: {code}",
+                        userid, services.DiscordLodestoneMapping[userid], authString, response.StatusCode);
                 }
             }
             else

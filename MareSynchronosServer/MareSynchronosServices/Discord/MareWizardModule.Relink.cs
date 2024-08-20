@@ -4,6 +4,7 @@ using MareSynchronosShared.Data;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Policy;
 
 namespace MareSynchronosServices.Discord;
 
@@ -226,12 +227,19 @@ public partial class MareWizardModule
                 if (content.Contains(authString))
                 {
                     services.DiscordVerifiedUsers[userid] = true;
+                    _logger.LogInformation("Verified {userid} from lodestone {lodestone}", userid, services.DiscordLodestoneMapping[userid]);
                     services.DiscordRelinkLodestoneMapping.TryRemove(userid, out _);
                 }
                 else
                 {
                     services.DiscordVerifiedUsers[userid] = false;
+                    _logger.LogInformation("Could not verify {userid} from lodestone {lodestone}, did not find authString: {authString}, status code was: {code}",
+                        userid, services.DiscordLodestoneMapping[userid], authString, response.StatusCode);
                 }
+            }
+            else
+            {
+                _logger.LogWarning("Could not verify {userid}, HttpStatusCode: {code}", userid, response.StatusCode);
             }
         }
     }
