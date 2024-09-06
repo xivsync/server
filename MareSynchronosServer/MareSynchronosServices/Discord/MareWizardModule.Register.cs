@@ -145,7 +145,7 @@ public partial class MareWizardModule
                 eb.WithTitle("验证注册失败");
                 eb.WithDescription("机器人无法在您的石之家个人资料中找到所需的验证码。" + Environment.NewLine + Environment.NewLine
                     + "请重新启动您的验证过程，并确保 _提交您的个人资料_ 以便正确保存。" + Environment.NewLine + Environment.NewLine
-                    + "**请确保你的个人资料对所有人公开，否则机器人将无法正常读取。" + Environment.NewLine + Environment.NewLine
+                    + "**请确保你的个人资料对所有人公开，否则机器人将无法正常读取。**" + Environment.NewLine + Environment.NewLine
                     + "机器人正在寻找的代码是" + Environment.NewLine + Environment.NewLine
                     + "**" + verificationCode + "**");
                 cb.WithButton("取消", "wizard-register", emote: new Emoji("❌"));
