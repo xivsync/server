@@ -84,6 +84,8 @@ public partial class MareWizardModule
         embed.WithDescription("一个辅助 UID创建完成，将以下的信息输入Mare的服务设置页面。");
         embed.AddField("UID", newUser.UID);
         embed.AddField("同步密钥", computedHash);
+
+        await _botServices.LogToChannel($"{Context.User.Mention} SECONDARY SUCCESS: {newUser.UID}").ConfigureAwait(false);
     }
 
 }
