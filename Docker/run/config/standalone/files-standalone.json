@@ -28,7 +28,6 @@
         "DbContextPoolSize": 512,
         "ShardName": "Files",
         "MetricsPort": 6250,
-        "FileServerGrpcAddress": "",
         "ForcedDeletionOfFilesAfterHours": -1,
         "CacheSizeHardLimitInGiB": -1,
         "UnusedFileRetentionPeriodInDays": 14,
@@ -37,7 +36,9 @@
         "MainServerAddress": "http://mare-server:6000/",
         "RedisConnectionString": "redis,password=secretredispassword",
         "MainFileServerAddress": "",
-        "Jwt": "teststringteststringteststringteststringteststringteststringteststringteststringteststringteststring"
+        "Jwt": "teststringteststringteststringteststringteststringteststringteststringteststringteststringteststring",
+        "UseColdStorage": false,
+        "IsDistributionNode": true
     },
     "AllowedHosts": "*",
     "Kestrel": {

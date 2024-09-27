@@ -7,7 +7,7 @@ using MareSynchronosShared.Data;
 using MareSynchronosShared.Metrics;
 using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
-using MareSynchronosShared.Utils;
+using MareSynchronosShared.Utils.Configuration;
 using MareSynchronosStaticFilesServer.Services;
 using MareSynchronosStaticFilesServer.Utils;
 using Microsoft.AspNetCore.Mvc;
@@ -37,7 +37,9 @@ public class ServerFilesController : ControllerBase
         IHubContext<MareHub> hubContext,
         MareDbContext mareDbContext, MareMetrics metricsClient) : base(logger)
     {
-        _basePath = configuration.GetValue<string>(nameof(StaticFilesServerConfiguration.CacheDirectory));
+        _basePath = configuration.GetValueOrDefault(nameof(StaticFilesServerConfiguration.UseColdStorage), false)
+            ? configuration.GetValue<string>(nameof(StaticFilesServerConfiguration.ColdStorageDirectory))
+            : configuration.GetValue<string>(nameof(StaticFilesServerConfiguration.CacheDirectory));
         _cachedFileProvider = cachedFileProvider;
         _configuration = configuration;
         _hubContext = hubContext;
@@ -49,14 +51,15 @@ public class ServerFilesController : ControllerBase
     public async Task<IActionResult> FilesDeleteAll()
     {
         var ownFiles = await _mareDbContext.Files.Where(f => f.Uploaded && f.Uploader.UID == MareUser).ToListAsync().ConfigureAwait(false);
+        bool isColdStorage = _configuration.GetValueOrDefault(nameof(StaticFilesServerConfiguration.UseColdStorage), false);
 
         foreach (var dbFile in ownFiles)
         {
             var fi = FilePathUtil.GetFileInfoForHash(_basePath, dbFile.Hash);
             if (fi != null)
             {
-                _metricsClient.DecGauge(MetricsAPI.GaugeFilesTotal, fi == null ? 0 : 1);
-                _metricsClient.DecGauge(MetricsAPI.GaugeFilesTotalSize, fi?.Length ?? 0);
+                _metricsClient.DecGauge(isColdStorage ? MetricsAPI.GaugeFilesTotalColdStorage : MetricsAPI.GaugeFilesTotal, fi == null ? 0 : 1);
+                _metricsClient.DecGauge(isColdStorage ? MetricsAPI.GaugeFilesTotalSizeColdStorage : MetricsAPI.GaugeFilesTotalSize, fi?.Length ?? 0);
 
                 fi?.Delete();
             }
@@ -75,7 +78,7 @@ public class ServerFilesController : ControllerBase
             Where(f => hashes.Contains(f.Hash)).ToListAsync().ConfigureAwait(false);
         List<DownloadFileDto> response = new();
 
-        var cacheFile = await _mareDbContext.Files.AsNoTracking().Where(f => hashes.Contains(f.Hash)).AsNoTracking().Select(k => new { k.Hash, k.Size }).AsNoTracking().ToListAsync().ConfigureAwait(false);
+        var cacheFile = await _mareDbContext.Files.AsNoTracking().Where(f => hashes.Contains(f.Hash)).AsNoTracking().Select(k => new { k.Hash, k.Size, k.RawSize }).AsNoTracking().ToListAsync().ConfigureAwait(false);
 
         var allFileShards = new List<CdnShardConfiguration>(_configuration.GetValueOrDefault(nameof(StaticFilesServerConfiguration.CdnShardConfiguration), new List<CdnShardConfiguration>()));
 
@@ -115,6 +118,7 @@ public class ServerFilesController : ControllerBase
                 Hash = file.Hash,
                 Size = file.Size,
                 Url = baseUrl?.ToString() ?? string.Empty,
+                RawSize = file.RawSize
             });
         }
 
@@ -229,12 +233,15 @@ public class ServerFilesController : ControllerBase
                 UploadDate = DateTime.UtcNow,
                 UploaderUID = MareUser,
                 Size = compressedFileStream.Length,
-                Uploaded = true
+                Uploaded = true,
+                RawSize = data.LongLength
             }).ConfigureAwait(false);
             await _mareDbContext.SaveChangesAsync().ConfigureAwait(false);
 
-            _metricsClient.IncGauge(MetricsAPI.GaugeFilesTotal, 1);
-            _metricsClient.IncGauge(MetricsAPI.GaugeFilesTotalSize, compressedFileStream.Length);
+            bool isColdStorage = _configuration.GetValueOrDefault(nameof(StaticFilesServerConfiguration.UseColdStorage), false);
+
+            _metricsClient.IncGauge(isColdStorage ? MetricsAPI.GaugeFilesTotalColdStorage : MetricsAPI.GaugeFilesTotal, 1);
+            _metricsClient.IncGauge(isColdStorage ? MetricsAPI.GaugeFilesTotalSizeColdStorage : MetricsAPI.GaugeFilesTotalSize, compressedFileStream.Length);
 
             _fileUploadLocks.TryRemove(hash, out _);
 
@@ -328,12 +335,15 @@ public class ServerFilesController : ControllerBase
                 UploadDate = DateTime.UtcNow,
                 UploaderUID = MareUser,
                 Size = compressedMungedStream.Length,
-                Uploaded = true
+                Uploaded = true,
+                RawSize = data.LongLength
             }).ConfigureAwait(false);
             await _mareDbContext.SaveChangesAsync().ConfigureAwait(false);
 
-            _metricsClient.IncGauge(MetricsAPI.GaugeFilesTotal, 1);
-            _metricsClient.IncGauge(MetricsAPI.GaugeFilesTotalSize, compressedMungedStream.Length);
+            bool isColdStorage = _configuration.GetValueOrDefault(nameof(StaticFilesServerConfiguration.UseColdStorage), false);
+
+            _metricsClient.IncGauge(isColdStorage ? MetricsAPI.GaugeFilesTotalColdStorage : MetricsAPI.GaugeFilesTotal, 1);
+            _metricsClient.IncGauge(isColdStorage ? MetricsAPI.GaugeFilesTotalSizeColdStorage : MetricsAPI.GaugeFilesTotalSize, compressedMungedStream.Length);
 
             return Ok();
         }
@@ -433,12 +443,15 @@ public class ServerFilesController : ControllerBase
                 UploadDate = DateTime.UtcNow,
                 UploaderUID = MareUser,
                 Size = compressedStream.Length,
-                Uploaded = true
+                Uploaded = true,
+                RawSize = rawFileStream.Length
             }).ConfigureAwait(false);
             await _mareDbContext.SaveChangesAsync().ConfigureAwait(false);
 
-            _metricsClient.IncGauge(MetricsAPI.GaugeFilesTotal, 1);
-            _metricsClient.IncGauge(MetricsAPI.GaugeFilesTotalSize, rawFileStream.Length);
+            bool isColdStorage = _configuration.GetValueOrDefault(nameof(StaticFilesServerConfiguration.UseColdStorage), false);
+
+            _metricsClient.IncGauge(isColdStorage ? MetricsAPI.GaugeFilesTotalColdStorage : MetricsAPI.GaugeFilesTotal, 1);
+            _metricsClient.IncGauge(isColdStorage ? MetricsAPI.GaugeFilesTotalSizeColdStorage : MetricsAPI.GaugeFilesTotalSize, rawFileStream.Length);
 
             return Ok();
         }

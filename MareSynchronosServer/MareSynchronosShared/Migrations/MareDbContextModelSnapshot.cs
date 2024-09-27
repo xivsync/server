@@ -17,7 +17,7 @@ namespace MareSynchronosServer.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "7.0.12")
+                .HasAnnotation("ProductVersion", "8.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -32,6 +32,10 @@ namespace MareSynchronosServer.Migrations
                     b.Property<bool>("IsBanned")
                         .HasColumnType("boolean")
                         .HasColumnName("is_banned");
+
+                    b.Property<bool>("MarkForBan")
+                        .HasColumnType("boolean")
+                        .HasColumnName("mark_for_ban");
 
                     b.Property<string>("PrimaryUserUID")
                         .HasColumnType("character varying(10)")
@@ -125,6 +129,10 @@ namespace MareSynchronosServer.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("hash");
+
+                    b.Property<long>("RawSize")
+                        .HasColumnType("bigint")
+                        .HasColumnName("raw_size");
 
                     b.Property<long>("Size")
                         .HasColumnType("bigint")
@@ -550,54 +558,17 @@ namespace MareSynchronosServer.Migrations
                     b.ToTable("user_profile_data", (string)null);
                 });
 
-            modelBuilder.Entity("MareSynchronosShared.Models.UserProfileDataReport", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("ReportDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("report_date");
-
-                    b.Property<string>("ReportReason")
-                        .HasColumnType("text")
-                        .HasColumnName("report_reason");
-
-                    b.Property<string>("ReportedUserUID")
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("reported_user_uid");
-
-                    b.Property<string>("ReportingUserUID")
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("reporting_user_uid");
-
-                    b.HasKey("Id")
-                        .HasName("pk_user_profile_data_reports");
-
-                    b.HasIndex("ReportedUserUID")
-                        .HasDatabaseName("ix_user_profile_data_reports_reported_user_uid");
-
-                    b.HasIndex("ReportingUserUID")
-                        .HasDatabaseName("ix_user_profile_data_reports_reporting_user_uid");
-
-                    b.ToTable("user_profile_data_reports", (string)null);
-                });
-
             modelBuilder.Entity("MareSynchronosShared.Models.Auth", b =>
                 {
                     b.HasOne("MareSynchronosShared.Models.User", "PrimaryUser")
                         .WithMany()
                         .HasForeignKey("PrimaryUserUID")
-                        .HasConstraintName("fk_auth_users_primary_user_temp_id");
+                        .HasConstraintName("fk_auth_users_primary_user_uid");
 
                     b.HasOne("MareSynchronosShared.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserUID")
-                        .HasConstraintName("fk_auth_users_user_temp_id1");
+                        .HasConstraintName("fk_auth_users_user_uid");
 
                     b.Navigation("PrimaryUser");
 
@@ -611,14 +582,14 @@ namespace MareSynchronosServer.Migrations
                         .HasForeignKey("OtherUserUID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_client_pairs_users_other_user_temp_id2");
+                        .HasConstraintName("fk_client_pairs_users_other_user_uid");
 
                     b.HasOne("MareSynchronosShared.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserUID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_client_pairs_users_user_temp_id3");
+                        .HasConstraintName("fk_client_pairs_users_user_uid");
 
                     b.Navigation("OtherUser");
 
@@ -640,7 +611,7 @@ namespace MareSynchronosServer.Migrations
                     b.HasOne("MareSynchronosShared.Models.User", "Owner")
                         .WithMany()
                         .HasForeignKey("OwnerUID")
-                        .HasConstraintName("fk_groups_users_owner_temp_id9");
+                        .HasConstraintName("fk_groups_users_owner_uid");
 
                     b.Navigation("Owner");
                 });
@@ -650,21 +621,21 @@ namespace MareSynchronosServer.Migrations
                     b.HasOne("MareSynchronosShared.Models.User", "BannedBy")
                         .WithMany()
                         .HasForeignKey("BannedByUID")
-                        .HasConstraintName("fk_group_bans_users_banned_by_temp_id5");
+                        .HasConstraintName("fk_group_bans_users_banned_by_uid");
 
                     b.HasOne("MareSynchronosShared.Models.User", "BannedUser")
                         .WithMany()
                         .HasForeignKey("BannedUserUID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_group_bans_users_banned_user_temp_id6");
+                        .HasConstraintName("fk_group_bans_users_banned_user_uid");
 
                     b.HasOne("MareSynchronosShared.Models.Group", "Group")
                         .WithMany()
                         .HasForeignKey("GroupGID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_group_bans_groups_group_temp_id");
+                        .HasConstraintName("fk_group_bans_groups_group_gid");
 
                     b.Navigation("BannedBy");
 
@@ -680,14 +651,14 @@ namespace MareSynchronosServer.Migrations
                         .HasForeignKey("GroupGID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_group_pairs_groups_group_temp_id2");
+                        .HasConstraintName("fk_group_pairs_groups_group_gid");
 
                     b.HasOne("MareSynchronosShared.Models.User", "GroupUser")
                         .WithMany()
                         .HasForeignKey("GroupUserUID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_group_pairs_users_group_user_temp_id8");
+                        .HasConstraintName("fk_group_pairs_users_group_user_uid");
 
                     b.Navigation("Group");
 
@@ -701,14 +672,14 @@ namespace MareSynchronosServer.Migrations
                         .HasForeignKey("GroupGID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_group_pair_preferred_permissions_groups_group_temp_id1");
+                        .HasConstraintName("fk_group_pair_preferred_permissions_groups_group_gid");
 
                     b.HasOne("MareSynchronosShared.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserUID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_group_pair_preferred_permissions_users_user_temp_id7");
+                        .HasConstraintName("fk_group_pair_preferred_permissions_users_user_uid");
 
                     b.Navigation("Group");
 
@@ -780,23 +751,6 @@ namespace MareSynchronosServer.Migrations
                         .HasConstraintName("fk_user_profile_data_users_user_uid");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("MareSynchronosShared.Models.UserProfileDataReport", b =>
-                {
-                    b.HasOne("MareSynchronosShared.Models.User", "ReportedUser")
-                        .WithMany()
-                        .HasForeignKey("ReportedUserUID")
-                        .HasConstraintName("fk_user_profile_data_reports_users_reported_user_uid");
-
-                    b.HasOne("MareSynchronosShared.Models.User", "ReportingUser")
-                        .WithMany()
-                        .HasForeignKey("ReportingUserUID")
-                        .HasConstraintName("fk_user_profile_data_reports_users_reporting_user_uid");
-
-                    b.Navigation("ReportedUser");
-
-                    b.Navigation("ReportingUser");
                 });
 #pragma warning restore 612, 618
         }

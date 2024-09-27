@@ -1,6 +1,7 @@
 ﻿using MareSynchronos.API.Routes;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils;
+using MareSynchronosShared.Utils.Configuration;
 using System.Net.Http.Headers;
 
 namespace MareSynchronosStaticFilesServer.Services;
@@ -23,16 +24,16 @@ public class ShardClientReadyMessageService : IClientReadyMessageService
 
     public void SendDownloadReady(string uid, Guid requestId)
     {
-        var mainUrl = _configurationService.GetValue<Uri>(nameof(StaticFilesServerConfiguration.MainFileServerAddress));
-        var path = MareFiles.MainSendReadyFullPath(mainUrl, uid, requestId);
-        using HttpRequestMessage msg = new()
-        {
-            RequestUri = path
-        };
-        msg.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _tokenGenerator.Token);
-
         _ = Task.Run(async () =>
         {
+            var mainUrl = _configurationService.GetValue<Uri>(nameof(StaticFilesServerConfiguration.MainFileServerAddress));
+            var path = MareFiles.MainSendReadyFullPath(mainUrl, uid, requestId);
+            using HttpRequestMessage msg = new()
+            {
+                RequestUri = path
+            };
+            msg.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _tokenGenerator.Token);
+
             _logger.LogInformation("Sending Client Ready for {uid}:{requestId} to {path}", uid, requestId, path);
             try
             {

@@ -4,6 +4,7 @@ using MareSynchronosShared.Data;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Policy;
 
 namespace MareSynchronosServices.Discord;
 
@@ -226,12 +227,22 @@ public partial class MareWizardModule
                 if (content.Contains(authString))
                 {
                     services.DiscordVerifiedUsers[userid] = true;
+                    _logger.LogInformation("Relink: Verified {userid} from lodestone {lodestone}", userid, services.DiscordRelinkLodestoneMapping[userid]);
+                    await _botServices.LogToChannel($"<@{userid}> RELINK VERIFY: Success.").ConfigureAwait(false);
                     services.DiscordRelinkLodestoneMapping.TryRemove(userid, out _);
                 }
                 else
                 {
                     services.DiscordVerifiedUsers[userid] = false;
+                    _logger.LogInformation("Relink: Could not verify {userid} from lodestone {lodestone}, did not find authString: {authString}, status code was: {code}",
+                        userid, services.DiscordRelinkLodestoneMapping[userid], authString, response.StatusCode);
+                    await _botServices.LogToChannel($"<@{userid}> RELINK VERIFY: Failed: No Authstring ({authString}). (<https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={services.DiscordRelinkLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20>)").ConfigureAwait(false);
                 }
+            }
+            else
+            {
+                _logger.LogWarning("Could not verify {userid}, HttpStatusCode: {code}", userid, response.StatusCode);
+                await _botServices.LogToChannel($"<@{userid}> RELINK VERIFY: Failed: HttpStatusCode {response.StatusCode}. (<https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={services.DiscordRelinkLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20>)").ConfigureAwait(false);
             }
         }
     }
@@ -266,6 +277,8 @@ public partial class MareWizardModule
         _botServices.Logger.LogInformation("User relinked: {userUID}", user.UID);
 
         await db.SaveChangesAsync().ConfigureAwait(false);
+
+        await _botServices.LogToChannel($"{Context.User.Mention} RELINK COMPLETE: => {user.UID}").ConfigureAwait(false);
 
         return (user.UID, computedHash);
     }

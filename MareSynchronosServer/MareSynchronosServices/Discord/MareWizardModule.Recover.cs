@@ -58,9 +58,10 @@ public partial class MareWizardModule
         }
 
         computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        string hashedKey = StringUtils.Sha256String(computedHash);
         auth = new Auth()
         {
-            HashedKey = StringUtils.Sha256String(computedHash),
+            HashedKey = hashedKey,
             User = previousAuth.User,
             PrimaryUserUID = previousAuth.PrimaryUserUID
         };
@@ -71,10 +72,15 @@ public partial class MareWizardModule
         embed.WithDescription("这里是你的同步密钥。不要与任何人分享它 **如果它丢失了，是无法恢复的。**"
                               + Environment.NewLine + Environment.NewLine
                               + $"**{computedHash}**"
+                              + Environment.NewLine
+                              + "__NOTE: The Secret Key only contains the letters ABCDEF and numbers 0 - 9.__"
                               + Environment.NewLine + Environment.NewLine
                               + "输入此同步密钥到Mare服务设置中并重新连接服务。");
 
         await db.Auth.AddAsync(auth).ConfigureAwait(false);
         await db.SaveChangesAsync().ConfigureAwait(false);
+
+        _botServices.Logger.LogInformation("User recovered: {userUID}:{hashedKey}", previousAuth.UserUID, hashedKey);
+        await _botServices.LogToChannel($"{Context.User.Mention} RECOVER SUCCESS: {previousAuth.UserUID}").ConfigureAwait(false);
     }
 }

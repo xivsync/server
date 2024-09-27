@@ -2,6 +2,7 @@
 using Discord;
 using MareSynchronosShared.Data;
 using MareSynchronosShared.Utils;
+using MareSynchronosShared.Utils.Configuration;
 
 namespace MareSynchronosServices.Discord;
 
@@ -98,6 +99,8 @@ public partial class MareWizardModule
                 AddHome(cb);
 
                 await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
+
+                await _botServices.LogToChannel($"{Context.User.Mention} DELETE SUCCESS: {uid}").ConfigureAwait(false);
             }
         }
         catch (Exception ex)

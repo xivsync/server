@@ -41,7 +41,7 @@
         "CdnFullUrl": "http://localhost:6200",
         "MaxExistingGroupsByUser": 6,
         "MaxJoinedGroupsByUser": 10,
-        "MaxGroupUserCount": 100,
+        "MaxGroupUserCount": 500,
         "PurgeUnusedAccounts": false,
         "PurgeUnusedAccountsPeriodInDays": 14,
         "ExpectedClientVersion": "0.9.0",
@@ -52,10 +52,6 @@
         "Endpoints": {
             "Http": {
                 "Url": "http://+:6000"
-            },
-            "Grpc": {
-                "Protocols": "Http2",
-                "Url": "http://+:6005"
             }
         }
     },

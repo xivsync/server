@@ -1,4 +1,5 @@
 ﻿using MareSynchronos.API.Dto.User;
+using Microsoft.VisualBasic.FileIO;
 using Prometheus;
 using System.Collections.Concurrent;
 using System.Globalization;
@@ -96,10 +97,9 @@ public class MareCensus : IHostedService
     private readonly string _xivApiKey;
     private Gauge? _gauge;
 
-    public MareCensus(ILogger<MareCensus> logger, string xivApiKey)
+    public MareCensus(ILogger<MareCensus> logger)
     {
         _logger = logger;
-        _xivApiKey = xivApiKey;
     }
 
     private bool Initialized => _gauge != null;
@@ -144,6 +144,96 @@ public class MareCensus : IHostedService
 
         _gender[0] = "男";
         _gender[1] = "女";
+        // _logger.LogInformation("Loading XIVAPI data");
+
+        // using HttpClient client = new HttpClient();
+
+        // Dictionary<ushort, short> worldDcs = new();
+
+        // var dcs = await client.GetStringAsync("https://raw.githubusercontent.com/xivapi/ffxiv-datamining/master/csv/WorldDCGroupType.csv", cancellationToken).ConfigureAwait(false);
+        // // dc: https://raw.githubusercontent.com/xivapi/ffxiv-datamining/master/csv/WorldDCGroupType.csv
+        // // id, name, region
+
+        // using var dcsReader = new StringReader(dcs);
+        // using var dcsParser = new TextFieldParser(dcsReader);
+        // dcsParser.Delimiters = [","];
+        // // read 3 lines and discard
+        // dcsParser.ReadLine(); dcsParser.ReadLine(); dcsParser.ReadLine();
+
+        // while (!dcsParser.EndOfData)
+        // {
+        //     var fields = dcsParser.ReadFields();
+        //     var id = short.Parse(fields[0], CultureInfo.InvariantCulture);
+        //     var name = fields[1];
+        //     if (string.IsNullOrEmpty(name) || id == 0) continue;
+        //     _logger.LogInformation("DC: ID: {id}, Name: {name}", id, name);
+        //     _dcs[id] = name;
+        // }
+
+        // var worlds = await client.GetStringAsync("https://raw.githubusercontent.com/xivapi/ffxiv-datamining/master/csv/World.csv", cancellationToken).ConfigureAwait(false);
+        // // world: https://raw.githubusercontent.com/xivapi/ffxiv-datamining/master/csv/World.csv
+        // // id, internalname, name, region, usertype, datacenter, ispublic
+
+        // using var worldsReader = new StringReader(worlds);
+        // using var worldsParser = new TextFieldParser(worldsReader);
+        // worldsParser.Delimiters = [","];
+        // // read 3 lines and discard
+        // worldsParser.ReadLine(); worldsParser.ReadLine(); worldsParser.ReadLine();
+
+        // while (!worldsParser.EndOfData)
+        // {
+        //     var fields = worldsParser.ReadFields();
+        //     var id = ushort.Parse(fields[0], CultureInfo.InvariantCulture);
+        //     var name = fields[1];
+        //     var dc = short.Parse(fields[5], CultureInfo.InvariantCulture);
+        //     var isPublic = bool.Parse(fields[6]);
+        //     if (!_dcs.ContainsKey(dc) || !isPublic) continue;
+        //     _worlds[id] = (name, dc);
+        //     _logger.LogInformation("World: ID: {id}, Name: {name}, DC: {dc}", id, name, dc);
+        // }
+
+        // var races = await client.GetStringAsync("https://raw.githubusercontent.com/xivapi/ffxiv-datamining/master/csv/Race.csv", cancellationToken).ConfigureAwait(false);
+        // // race: https://raw.githubusercontent.com/xivapi/ffxiv-datamining/master/csv/Race.csv
+        // // id, masc name, fem name, other crap I don't care about
+
+        // using var raceReader = new StringReader(races);
+        // using var raceParser = new TextFieldParser(raceReader);
+        // raceParser.Delimiters = [","];
+        // // read 3 lines and discard
+        // raceParser.ReadLine(); raceParser.ReadLine(); raceParser.ReadLine();
+
+        // while (!raceParser.EndOfData)
+        // {
+        //     var fields = raceParser.ReadFields();
+        //     var id = short.Parse(fields[0], CultureInfo.InvariantCulture);
+        //     var name = fields[1];
+        //     if (string.IsNullOrEmpty(name) || id == 0) continue;
+        //     _races[id] = name;
+        //     _logger.LogInformation("Race: ID: {id}, Name: {name}", id, name);
+        // }
+
+        // var tribe = await client.GetStringAsync("https://raw.githubusercontent.com/xivapi/ffxiv-datamining/master/csv/Tribe.csv", cancellationToken).ConfigureAwait(false);
+        // // tribe: https://raw.githubusercontent.com/xivapi/ffxiv-datamining/master/csv/Tribe.csv
+        // // id masc name, fem name, other crap I don't care about
+
+        // using var tribeReader = new StringReader(tribe);
+        // using var tribeParser = new TextFieldParser(tribeReader);
+        // tribeParser.Delimiters = [","];
+        // // read 3 lines and discard
+        // tribeParser.ReadLine(); tribeParser.ReadLine(); tribeParser.ReadLine();
+
+        // while (!tribeParser.EndOfData)
+        // {
+        //     var fields = tribeParser.ReadFields();
+        //     var id = short.Parse(fields[0], CultureInfo.InvariantCulture);
+        //     var name = fields[1];
+        //     if (string.IsNullOrEmpty(name) || id == 0) continue;
+        //     _tribes[id] = name;
+        //     _logger.LogInformation("Tribe: ID: {id}, Name: {name}", id, name);
+        // }
+
+        // _gender[0] = "Male";
+        // _gender[1] = "Female";
 
         _gauge = Metrics.CreateGauge("mare_census", "mare informational census data", new[] { "dc", "world", "gender", "race", "subrace" });
     }

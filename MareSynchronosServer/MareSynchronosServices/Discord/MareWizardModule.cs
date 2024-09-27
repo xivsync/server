@@ -5,8 +5,8 @@ using MareSynchronosShared.Data;
 using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils;
+using MareSynchronosShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Win32;
 using StackExchange.Redis;
 using System.Text.RegularExpressions;
 
@@ -59,6 +59,12 @@ public partial class MareWizardModule : InteractionModuleBase
                 return;
             }
         }
+#if !DEBUG
+        bool isInAprilFoolsMode = _mareServicesConfiguration.GetValueOrDefault<ulong?>(nameof(ServicesConfiguration.DiscordRoleAprilFools2024), null) != null
+            && DateTime.UtcNow.Month == 4 && DateTime.UtcNow.Day == 1 && DateTime.UtcNow.Year == 2024 && DateTime.UtcNow.Hour >= 10;
+#elif DEBUG
+        bool isInAprilFoolsMode = true;
+#endif
 
         EmbedBuilder eb = new();
         eb.WithTitle("欢迎使用本服务器的 Mare Synchronos 服务机器人");
