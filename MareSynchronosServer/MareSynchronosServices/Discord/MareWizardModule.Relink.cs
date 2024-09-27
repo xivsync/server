@@ -236,13 +236,13 @@ public partial class MareWizardModule
                     services.DiscordVerifiedUsers[userid] = false;
                     _logger.LogInformation("Relink: Could not verify {userid} from lodestone {lodestone}, did not find authString: {authString}, status code was: {code}",
                         userid, services.DiscordRelinkLodestoneMapping[userid], authString, response.StatusCode);
-                    await _botServices.LogToChannel($"<@{userid}> RELINK VERIFY: Failed: No Authstring ({authString}). (<{url}>)").ConfigureAwait(false);
+                    await _botServices.LogToChannel($"<@{userid}> RELINK VERIFY: Failed: No Authstring ({authString}). (<https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={services.DiscordRelinkLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20>)").ConfigureAwait(false);
                 }
             }
             else
             {
                 _logger.LogWarning("Could not verify {userid}, HttpStatusCode: {code}", userid, response.StatusCode);
-                await _botServices.LogToChannel($"<@{userid}> RELINK VERIFY: Failed: HttpStatusCode {response.StatusCode}. (<{url}>)").ConfigureAwait(false);
+                await _botServices.LogToChannel($"<@{userid}> RELINK VERIFY: Failed: HttpStatusCode {response.StatusCode}. (<https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={services.DiscordRelinkLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20>)").ConfigureAwait(false);
             }
         }
     }
