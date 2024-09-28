@@ -50,6 +50,8 @@ services:
   mare-auth:
     image: darkarchon/mare-synchronos-authservice:latest
     restart: on-failure
+    ports:
+      - 6060:8080/tcp
     environment:
       DOTNET_USE_POLLING_FILE_WATCHER: 1
     volumes:
