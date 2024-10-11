@@ -110,7 +110,7 @@ public partial class MareWizardModule : InteractionModuleBase
         public string Title => "设置个性 UID";
 
         [InputLabel("输入你想要设置的个性 UID")]
-        [ModalTextInput("vanity_uid", TextInputStyle.Short, "5-15个字符，下划线，短横线", 5, 15)]
+        [ModalTextInput("vanity_uid", TextInputStyle.Short, "2-15个字符，中文，下划线，短横线", 2, 15)]
         public string DesiredVanityUID { get; set; }
     }
 

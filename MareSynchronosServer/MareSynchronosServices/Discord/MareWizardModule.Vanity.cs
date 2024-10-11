@@ -93,12 +93,12 @@ public partial class MareWizardModule
         using var db = GetDbContext();
         bool canAddVanityId = !db.Users.Any(u => u.UID == modal.DesiredVanityUID || u.Alias == modal.DesiredVanityUID);
 
-        Regex rgx = new(@"^[_\-a-zA-Z0-9]{5,15}$", RegexOptions.ECMAScript);
+        Regex rgx = new(@"^[_\-a-zA-Z0-9\u4e00-\u9fa5]{2,15}$", RegexOptions.ECMAScript);
         if (!rgx.Match(desiredVanityUid).Success)
         {
             eb.WithColor(Color.Red);
             eb.WithTitle("不符合要求的个性 UID");
-            eb.WithDescription("个性 UID必须是5到15位长度，并且只包含字母 A-Z, 数字 0-9, 短横线 (-) 以及下划线 (_)。");
+            eb.WithDescription("个性 UID必须是2到15位长度，并且只包含中文, 字母 A-Z, 数字 0-9, 短横线 (-) 以及下划线 (_)。");
             cb.WithButton("取消", "wizard-vanity", ButtonStyle.Secondary, emote: new Emoji("❌"));
             cb.WithButton("选择另一个UID", "wizard-vanity-uid-set:" + uid, ButtonStyle.Primary, new Emoji("💅"));
         }
