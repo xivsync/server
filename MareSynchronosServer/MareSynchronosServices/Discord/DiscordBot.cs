@@ -280,7 +280,7 @@ internal class DiscordBot : IHostedService
             + "您可以通过简单易用的交互式机器人，在此服务器上处理您对 Mare 账户的所有需求。只需按照说明操作即可！");
         eb.WithThumbnailUrl("https://raw.githubusercontent.com/Penumbra-Sync/repo/main/MareSynchronos/images/icon.png");
         var cb = new ComponentBuilder();
-        cb.WithButton("开始", style: ButtonStyle.Primary, customId: "wizard-home:true", emote: Emoji.Parse("➡️"));
+        cb.WithButton("开始", style: ButtonStyle.Primary, customId: "wizard-captcha:true", emote: Emoji.Parse("➡️"));
         if (prevMessage == null)
         {
             var msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
