@@ -93,11 +93,11 @@ public partial class MareWizardModule : InteractionModuleBase
     public async Task WizardCaptchaFail(int button)
     {
         ComponentBuilder cb = new();
-        cb.WithButton("Restart (with Embeds enabled)", "wizard-captcha:false", emote: new Emoji("↩️"));
+        cb.WithButton("重试", "wizard-captcha:false", emote: new Emoji("↩️"));
         await ((Context.Interaction) as IComponentInteraction).UpdateAsync(m =>
         {
             m.Embed = null;
-            m.Content = "You pressed the wrong button. You likely have embeds disabled. Enable embeds in your Discord client (Settings -> Chat -> \"Show embeds and preview website links pasted into chat\") and try again.";
+            m.Content = "你点击了错误的按钮. 你可能关闭了 embeds 功能. 打开 (用户设置 -> 聊天 -> \"显示嵌入并预览黏贴在聊天中的网站链接\") 并重试.";
             m.Components = cb.Build();
         }).ConfigureAwait(false);
 
@@ -182,7 +182,7 @@ public partial class MareWizardModule : InteractionModuleBase
         public string Title => "设置个性同步贝ID";
 
         [InputLabel("输入你想要设置的个性同步贝ID")]
-        [ModalTextInput("vanity_gid", TextInputStyle.Short, "5-20个字符，下划线，短横线", 5, 20)]
+        [ModalTextInput("vanity_gid", TextInputStyle.Short, "2-15个字符，中文，下划线，短横线", 2, 15)]
         public string DesiredVanityGID { get; set; }
     }
 
@@ -284,7 +284,7 @@ public partial class MareWizardModule : InteractionModuleBase
                 gids.AddOption(item.Alias ?? item.GID, item.GID, (item.Alias == null ? string.Empty : item.GID) + $" ({item.Owner.Alias ?? item.Owner.UID})", new Emoji("2️⃣"));
             }
             gids.WithCustomId(customId);
-            gids.WithPlaceholder("Select a Syncshell");
+            gids.WithPlaceholder("选择一个同步贝");
             cb.WithSelectMenu(gids);
         }
     }

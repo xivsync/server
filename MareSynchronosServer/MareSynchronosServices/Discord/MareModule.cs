@@ -48,8 +48,8 @@ public class MareModule : InteractionModuleBase
         catch (Exception ex)
         {
             EmbedBuilder eb = new();
-            eb.WithTitle("An error occured");
-            eb.WithDescription("Please report this error to bug-reports: " + Environment.NewLine + ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine);
+            eb.WithTitle("发生了错误");
+            eb.WithDescription("请上报该BUG: " + Environment.NewLine + ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine);
 
             await RespondAsync(embeds: new Embed[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
         }
@@ -71,17 +71,17 @@ public class MareModule : InteractionModuleBase
         catch (Exception ex)
         {
             EmbedBuilder eb = new();
-            eb.WithTitle("An error occured");
-            eb.WithDescription("Please report this error to bug-reports: " + Environment.NewLine + ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine);
+            eb.WithTitle("发生了错误");
+            eb.WithDescription("请上报该BUG: " + Environment.NewLine + ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine);
 
             await RespondAsync(embeds: new Embed[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
         }
     }
 
     [SlashCommand("message", "仅管理员：向客户端发送消息")]
-    public async Task SendMessageToClients([Summary("message", "Message to send")] string message,
-        [Summary("severity", "Severity of the message")] MessageSeverity messageType = MessageSeverity.Information,
-        [Summary("uid", "User ID to the person to send the message to")] string? uid = null)
+    public async Task SendMessageToClients([Summary("message", "要发送的消息")] string message,
+        [Summary("severity", "消息严重性")] MessageSeverity messageType = MessageSeverity.Information,
+        [Summary("uid", "要发送给的用户UID")] string? uid = null)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}:{message}:{type}:{uid}", Context.Interaction.User.Id, nameof(SendMessageToClients), message, messageType, uid);
 
@@ -90,13 +90,13 @@ public class MareModule : InteractionModuleBase
 
         if (!(await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == Context.Interaction.User.Id))?.User?.IsAdmin ?? true)
         {
-            await RespondAsync("No permission", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync("权限不足", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
         if (!string.IsNullOrEmpty(uid) && !await db.Users.AnyAsync(u => u.UID == uid))
         {
-            await RespondAsync("Specified UID does not exist", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync("UID不存在", ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -122,7 +122,7 @@ public class MareModule : InteractionModuleBase
                     };
 
                     EmbedBuilder eb = new();
-                    eb.WithTitle(messageType + " server message");
+                    eb.WithTitle(messageType + " 服务器信息");
                     eb.WithColor(embedColor);
                     eb.WithDescription(message);
 
@@ -130,11 +130,11 @@ public class MareModule : InteractionModuleBase
                 }
             }
 
-            await RespondAsync("Message sent", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync("消息已发送", ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            await RespondAsync("Failed to send message: " + ex.ToString(), ephemeral: true).ConfigureAwait(false);
+            await RespondAsync("消息发送失败: " + ex.ToString(), ephemeral: true).ConfigureAwait(false);
         }
     }
 
@@ -146,13 +146,13 @@ public class MareModule : InteractionModuleBase
         using var db = scope.ServiceProvider.GetService<MareDbContext>();
         if (!(await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == discordUserId))?.User?.IsAdmin ?? true)
         {
-            embed.WithTitle("Failed to add user");
-            embed.WithDescription("No permission");
+            embed.WithTitle("添加用户失败");
+            embed.WithDescription("权限不足");
         }
         else if (db.Users.Any(u => u.UID == desiredUid || u.Alias == desiredUid))
         {
-            embed.WithTitle("Failed to add user");
-            embed.WithDescription("Already in Database");
+            embed.WithTitle("添加用户失败");
+            embed.WithDescription("用户已存在");
         }
         else
         {
@@ -176,8 +176,8 @@ public class MareModule : InteractionModuleBase
 
             await db.SaveChangesAsync();
 
-            embed.WithTitle("Successfully added " + desiredUid);
-            embed.WithDescription("Secret Key: " + computedHash);
+            embed.WithTitle("已成功添加 " + desiredUid);
+            embed.WithDescription("密钥: " + computedHash);
         }
 
         return embed.Build();
@@ -195,8 +195,8 @@ public class MareModule : InteractionModuleBase
 
         if (primaryUser == null)
         {
-            eb.WithTitle("No account");
-            eb.WithDescription("No Mare account was found associated to your Discord user");
+            eb.WithTitle("账号不存在");
+            eb.WithDescription("没有与该Discord账号关联的Mare账号");
             return eb;
         }
 
@@ -204,8 +204,8 @@ public class MareModule : InteractionModuleBase
 
         if ((optionalUser != null || uid != null) && !isAdminCall)
         {
-            eb.WithTitle("Unauthorized");
-            eb.WithDescription("You are not authorized to view another users' information");
+            eb.WithTitle("权限不足");
+            eb.WithDescription("只有管理员可以查看其它用户的信息");
             return eb;
         }
         else if ((optionalUser != null || uid != null) && isAdminCall)
@@ -222,8 +222,8 @@ public class MareModule : InteractionModuleBase
 
             if (userInDb == null)
             {
-                eb.WithTitle("No account");
-                eb.WithDescription("The Discord user has no valid Mare account");
+                eb.WithTitle("账号不存在");
+                eb.WithDescription("该Discord账号没有关联Mare账号");
                 return eb;
             }
 
@@ -237,8 +237,8 @@ public class MareModule : InteractionModuleBase
             dbUser = (await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.PrimaryUserUID == dbUser.UID && u.UserUID == secondaryUserUid))?.User;
             if (dbUser == null)
             {
-                eb.WithTitle("No such secondary UID");
-                eb.WithDescription($"A secondary UID {secondaryUserUid} was not found attached to your primary UID {primaryUser.User.UID}.");
+                eb.WithTitle("辅助UID不存在");
+                eb.WithDescription($"你的主UID {primaryUser.User.UID} 下不存在辅助UID {secondaryUserUid}.");
                 return eb;
             }
         }
@@ -247,45 +247,51 @@ public class MareModule : InteractionModuleBase
         var groups = await db.Groups.Where(g => g.OwnerUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var groupsJoined = await db.GroupPairs.Where(g => g.GroupUserUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("UID:" + dbUser.UID).ConfigureAwait(false);
+        var lodestone = await db.LodeStoneAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User.UID == dbUser.UID).ConfigureAwait(false);
 
-        eb.WithTitle("User Information");
-        eb.WithDescription("This is the user information for Discord User <@" + userToCheckForDiscordId + ">" + Environment.NewLine + Environment.NewLine
-            + "If you want to verify your secret key is valid, go to https://emn178.github.io/online-tools/sha256.html and copy your secret key into there and compare it to the Hashed Secret Key provided below.");
+        eb.WithTitle("用户信息");
+        eb.WithDescription("这是 Discord 用户 <@" + userToCheckForDiscordId + "> 的信息" + Environment.NewLine + Environment.NewLine
+                           + "如果你想检查你的同步密钥是否正确, 访问 https://emn178.github.io/online-tools/sha256.html 并将您的同步密钥复制到上方的输入框，然后检查输出的同步密钥哈希值是否与下方提供的一致。");
         eb.AddField("UID", dbUser.UID);
         if (!string.IsNullOrEmpty(dbUser.Alias))
         {
-            eb.AddField("Vanity UID", dbUser.Alias);
+            eb.AddField("个性 UID", dbUser.Alias);
         }
         if (showForSecondaryUser)
         {
-            eb.AddField("Primary UID for " + dbUser.UID, auth.PrimaryUserUID);
+            eb.AddField("主UID为 " + dbUser.UID, auth.PrimaryUserUID);
         }
         else
         {
             var secondaryUIDs = await db.Auth.Where(p => p.PrimaryUserUID == dbUser.UID).Select(p => p.UserUID).ToListAsync();
             if (secondaryUIDs.Any())
             {
-                eb.AddField("Secondary UIDs", string.Join(Environment.NewLine, secondaryUIDs));
+                eb.AddField("辅助UID:", string.Join(Environment.NewLine, secondaryUIDs));
             }
         }
-        eb.AddField("Last Online (UTC)", dbUser.LastLoggedIn.ToString("U"));
-        eb.AddField("Currently online ", !string.IsNullOrEmpty(identity));
-        eb.AddField("Hashed Secret Key", auth.HashedKey);
-        eb.AddField("Joined Syncshells", groupsJoined.Count);
-        eb.AddField("Owned Syncshells", groups.Count);
+        eb.AddField("上一次在线(本地时间)", $"<t:{dbUser.LastLoggedIn}:f>");
+        eb.AddField("目前是否在线", !string.IsNullOrEmpty(identity));
+        eb.AddField("同步密钥哈希值", auth.HashedKey);
+        eb.AddField("加入的同步贝数量", groupsJoined.Count);
+        eb.AddField("拥有的同步贝数量", groups.Count);
         foreach (var group in groups)
         {
             var syncShellUserCount = await db.GroupPairs.CountAsync(g => g.GroupGID == group.GID).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(group.Alias))
             {
-                eb.AddField("Owned Syncshell " + group.GID + " Vanity ID", group.Alias);
+                eb.AddField("拥有的同步贝 " + group.GID + " ,个性 GID", group.Alias);
             }
-            eb.AddField("Owned Syncshell " + group.GID + " User Count", syncShellUserCount);
+            eb.AddField("拥有的同步贝 " + group.GID + " ,用户数量", syncShellUserCount);
         }
 
         if (isAdminCall && !string.IsNullOrEmpty(identity))
         {
-            eb.AddField("Character Ident", identity);
+            eb.AddField("角色识别码", identity);
+        }
+        
+        if (isAdminCall && !string.IsNullOrEmpty(lodestoneUser.HashedLodestoneId))
+        {
+            eb.AddField("LodeStone识别码", lodestoneUser.HashedLodestoneId);
         }
 
         return eb;
