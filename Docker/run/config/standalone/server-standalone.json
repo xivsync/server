@@ -42,8 +42,8 @@
         "MaxExistingGroupsByUser": 6,
         "MaxJoinedGroupsByUser": 10,
         "MaxGroupUserCount": 500,
-        "PurgeUnusedAccounts": false,
-        "PurgeUnusedAccountsPeriodInDays": 14,
+        "PurgeUnusedAccounts": true,
+        "PurgeUnusedAccountsPeriodInDays": 60,
         "ExpectedClientVersion": "0.9.0",
         "XIVAPIKey": ""
     },

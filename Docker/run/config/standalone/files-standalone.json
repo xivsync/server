@@ -29,7 +29,7 @@
         "ShardName": "Files",
         "MetricsPort": 6250,
         "ForcedDeletionOfFilesAfterHours": -1,
-        "CacheSizeHardLimitInGiB": -1,
+        "CacheSizeHardLimitInGiB": 420,
         "UnusedFileRetentionPeriodInDays": 14,
         "CacheDirectory": "/marecache/",
         "RemoteCacheSourceUri": "",
