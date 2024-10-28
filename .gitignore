@@ -352,3 +352,4 @@ MigrationBackup/
 # docker run data
 Docker/run/data/
 Docker/run/compose/.env
+/MareSynchronosServer/.idea
