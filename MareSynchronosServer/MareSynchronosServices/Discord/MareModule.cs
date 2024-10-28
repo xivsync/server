@@ -269,7 +269,7 @@ public class MareModule : InteractionModuleBase
                 eb.AddField("辅助UID:", string.Join(Environment.NewLine, secondaryUIDs));
             }
         }
-        eb.AddField("上一次在线(本地时间)", $"<t:{dbUser.LastLoggedIn}:f>");
+        eb.AddField("上一次在线(本地时间)", $"<t:{new DateTimeOffset(dbUser.LastLoggedIn.ToUniversalTime()).ToUnixTimeSeconds()}:f>");
         eb.AddField("目前是否在线", !string.IsNullOrEmpty(identity));
         eb.AddField("同步密钥哈希值", auth.HashedKey);
         eb.AddField("加入的同步贝数量", groupsJoined.Count);
