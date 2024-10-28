@@ -1,6 +1,6 @@
 {
     "ConnectionStrings": {
-        "DefaultConnection": "Host=/var/run/postgresql;Port=5432;Database=mare;Username=mare;Keepalive=15;Minimum Pool Size=10;Maximum Pool Size=50;No Reset On Close=true;Max Auto Prepare=50;Enlist=false"
+        "DefaultConnection": "Host=/var/run/postgresql;Port=5432;Database=mare;Username=mare;Keepalive=15;Minimum Pool Size=10;Maximum Pool Size=50;No Reset On Close=true;Max Auto Prepare=50;Enlist=false;Include Error Detail=true"
     },
     "Logging": {
         "LogLevel": {
