@@ -23,7 +23,7 @@ public class MareCensus : IHostedService
         {101, "陆行鸟"},
         {102, "莫古力"},
         {103, "猫小胖"},
-        {201, "豆豆柴"},
+        {104, "豆豆柴"},
     };
     private readonly Dictionary<short, string> _gender = new();
     private readonly ILogger<MareCensus> _logger;
