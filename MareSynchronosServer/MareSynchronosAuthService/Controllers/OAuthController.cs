@@ -43,7 +43,7 @@ public class OAuthController : AuthControllerBase
         var discordClientSecret = Configuration.GetValueOrDefault<string?>(nameof(AuthServiceConfiguration.DiscordOAuthClientSecret), null);
         var discordClientId = Configuration.GetValueOrDefault<string?>(nameof(AuthServiceConfiguration.DiscordOAuthClientId), null);
         if (discordClientSecret == null || discordClientId == null || discordOAuthUri == null)
-            return BadRequest("Server does not support OAuth2");
+            return BadRequest("服务器不支持Oauth2验证");
 
         var cookieOptions = new CookieOptions
         {
@@ -82,9 +82,9 @@ public class OAuthController : AuthControllerBase
         var discordClientSecret = Configuration.GetValueOrDefault<string?>(nameof(AuthServiceConfiguration.DiscordOAuthClientSecret), null);
         var discordClientId = Configuration.GetValueOrDefault<string?>(nameof(AuthServiceConfiguration.DiscordOAuthClientId), null);
         if (discordClientSecret == null || discordClientId == null || discordOAuthUri == null)
-            return BadRequest("Server does not support OAuth2");
-        if (string.IsNullOrEmpty(reqId)) return BadRequest("No session cookie found");
-        if (string.IsNullOrEmpty(code)) return BadRequest("No Discord OAuth2 code found");
+            return BadRequest("服务器不支持Oauth2验证");
+        if (string.IsNullOrEmpty(reqId)) return BadRequest("未找到Cookie");
+        if (string.IsNullOrEmpty(code)) return BadRequest("未找到OAuth2码");
 
         var query = HttpUtility.ParseQueryString(discordOAuthUri.Query);
         using var client = new HttpClient();
@@ -103,7 +103,7 @@ public class OAuthController : AuthControllerBase
 
         if (!response.IsSuccessStatusCode)
         {
-            return BadRequest("Failed to get Discord token");
+            return BadRequest("获取Discord token失败");
         }
 
         using var tokenJson = await JsonDocument.ParseAsync(responseBody).ConfigureAwait(false);
@@ -116,7 +116,7 @@ public class OAuthController : AuthControllerBase
 
         if (!meResponse.IsSuccessStatusCode)
         {
-            return BadRequest("Failed to get Discord user info");
+            return BadRequest("获取Discord用户信息失败");
         }
 
         ulong discordUserId = 0;
@@ -129,17 +129,17 @@ public class OAuthController : AuthControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest("Failed to parse user id from @me response for token");
+            return BadRequest("尝试从 @me 获得Token失败");
         }
 
         if (discordUserId == 0)
-            return BadRequest("Failed to get Discord ID from login token");
+            return BadRequest("获取 Discord ID 失败");
 
         using var dbContext = await MareDbContextFactory.CreateDbContextAsync();
 
         var mareUser = await dbContext.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == discordUserId);
         if (mareUser == null)
-            return BadRequest("Could not find a Mare user associated to this Discord account.");
+            return BadRequest("未找到与目标Discord账号关联的Mare账号.");
 
         var jwt = CreateJwt([
             new Claim(MareClaimTypes.Uid, mareUser.User!.UID),
@@ -166,7 +166,7 @@ public class OAuthController : AuthControllerBase
                 _cookieOAuthResponse.TryRemove(reqId, out _);
         });
 
-        return Ok("The OAuth2 token was generated. The plugin will grab it automatically. You can close this browser tab.");
+        return Ok("OAuth2 token已生成. 插件将自动获取. 你可以关闭本标签页了.");
     }
 
     [Authorize(Policy = "OAuthToken")]
@@ -190,11 +190,11 @@ public class OAuthController : AuthControllerBase
         }
         if (cts.IsCancellationRequested)
         {
-            return BadRequest("Did not find Discord OAuth2 response");
+            return BadRequest("未收到 Discord OAuth2 响应");
         }
         _cookieOAuthResponse.TryRemove(sessionId, out var token);
         if (token == null)
-            return BadRequest("OAuth session was never established");
+            return BadRequest("OAuth 连接未建立");
         return Content(token);
     }
 
@@ -239,8 +239,8 @@ public class OAuthController : AuthControllerBase
         try
         {
             string primaryUid = HttpContext.User.Claims.Single(c => string.Equals(c.Type, MareClaimTypes.Uid, StringComparison.Ordinal))!.Value;
-            if (string.IsNullOrEmpty(requestedUid)) return BadRequest("No UID");
-            if (string.IsNullOrEmpty(charaIdent)) return BadRequest("No CharaIdent");
+            if (string.IsNullOrEmpty(requestedUid)) return BadRequest("无 UID");
+            if (string.IsNullOrEmpty(charaIdent)) return BadRequest("无 CharaIdent");
 
             var ip = HttpAccessor.GetIpAddress();
 
@@ -251,7 +251,7 @@ public class OAuthController : AuthControllerBase
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Authenticate:UNKNOWN");
-            return Unauthorized("Unknown internal server error during authentication");
+            return Unauthorized("认证时出现了未知服务器错误");
         }
     }
 }
