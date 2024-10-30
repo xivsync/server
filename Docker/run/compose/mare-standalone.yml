@@ -53,6 +53,9 @@ services:
     ports:
       - 6060:8080/tcp
     environment:
+      MareSynchronos__PublicOAuthBaseUri: "${DEV_MARE_PublicOAuthBaseUri}"
+      MareSynchronos__DiscordOAuthClientSecret: "${DEV_MARE_DiscordOAuthClientSecret}"
+      MareSynchronos__DiscordOAuthClientId: "${DEV_MARE_DiscordOAuthClientId}"
       DOTNET_USE_POLLING_FILE_WATCHER: 1
     volumes:
       - ../config/standalone/authservice-standalone.json:/opt/MareSynchronosAuthService/appsettings.json
