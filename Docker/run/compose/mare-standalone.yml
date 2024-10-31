@@ -74,7 +74,7 @@ services:
       MareSynchronos__SZJCookie: "${DEV_MARE_SZJCOOKIE}"
       MareSynchronos__DiscordBotToken: "${DEV_MARE_DISCORDTOKEN}"
       MareSynchronos__DiscordChannelForMessages: "${DEV_MARE_DISCORDCHANNEL}"
-      MareSynchronos__DiscordChannelForReports: "${DEV_MARE_DISCORDCHANNEL}"
+      MareSynchronos__DiscordChannelForReports: "${DEV_MARE_REPORTCHANNEL}"
       MareSynchronos__DiscordChannelForCommands: "${DEV_MARE_DISCORDCHANNEL}"
       DOTNET_USE_POLLING_FILE_WATCHER: 1
     volumes:
