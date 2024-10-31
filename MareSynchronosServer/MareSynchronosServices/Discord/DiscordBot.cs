@@ -357,7 +357,13 @@ internal class DiscordBot : IHostedService
                         var reportedUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportedUserUID).ConfigureAwait(false);
                         var reportingUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportingUserUID).ConfigureAwait(false);
                         var reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportingUserUID).ConfigureAwait(false);
-                        var reportedUserProfile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
+                        var reportedUserProfile = await dbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
+                        if (reportedUserProfile is null)
+                        {
+                            reportedUserProfile = new UserProfileData(){ UserUID = reportedUser.UID, Base64ProfileImage = null, UserDescription = null, IsNSFW = false };
+                            dbContext.UserProfileData.Add(reportedUserProfile);
+                            await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                        }
                         EmbedBuilder eb = new();
                         eb.WithTitle("Mare Synchronos Profile Report");
 
