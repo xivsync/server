@@ -558,6 +558,43 @@ namespace MareSynchronosServer.Migrations
                     b.ToTable("user_profile_data", (string)null);
                 });
 
+            modelBuilder.Entity("MareSynchronosShared.Models.UserProfileDataReport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ReportDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("report_date");
+
+                    b.Property<string>("ReportReason")
+                        .HasColumnType("text")
+                        .HasColumnName("report_reason");
+
+                    b.Property<string>("ReportedUserUID")
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("reported_user_uid");
+
+                    b.Property<string>("ReportingUserUID")
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("reporting_user_uid");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_profile_data_reports");
+
+                    b.HasIndex("ReportedUserUID")
+                        .HasDatabaseName("ix_user_profile_data_reports_reported_user_uid");
+
+                    b.HasIndex("ReportingUserUID")
+                        .HasDatabaseName("ix_user_profile_data_reports_reporting_user_uid");
+
+                    b.ToTable("user_profile_data_reports", (string)null);
+                });
+
             modelBuilder.Entity("MareSynchronosShared.Models.Auth", b =>
                 {
                     b.HasOne("MareSynchronosShared.Models.User", "PrimaryUser")
@@ -751,6 +788,23 @@ namespace MareSynchronosServer.Migrations
                         .HasConstraintName("fk_user_profile_data_users_user_uid");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MareSynchronosShared.Models.UserProfileDataReport", b =>
+                {
+                    b.HasOne("MareSynchronosShared.Models.User", "ReportedUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedUserUID")
+                        .HasConstraintName("fk_user_profile_data_reports_users_reported_user_uid");
+
+                    b.HasOne("MareSynchronosShared.Models.User", "ReportingUser")
+                        .WithMany()
+                        .HasForeignKey("ReportingUserUID")
+                        .HasConstraintName("fk_user_profile_data_reports_users_reporting_user_uid");
+
+                    b.Navigation("ReportedUser");
+
+                    b.Navigation("ReportingUser");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using System.Text;
+using Discord;
 using Discord.Interactions;
 using Discord.Rest;
 using Discord.WebSocket;
@@ -211,6 +212,7 @@ internal class DiscordBot : IHostedService
         await _botServices.LogToChannel("Bot startup complete.").ConfigureAwait(false);
         _ = UpdateVanityRoles(guild, _updateStatusCts.Token);
         _ = RemoveUsersNotInVanityRole(_updateStatusCts.Token);
+        _ = ProcessReportsQueue();
     }
 
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
@@ -317,6 +319,96 @@ internal class DiscordBot : IHostedService
         }
 
         return Task.CompletedTask;
+    }
+
+        private async Task ProcessReportsQueue()
+    {
+        var guild = (await _discordClient.Rest.GetGuildsAsync()).First();
+
+        _processReportQueueCts?.Cancel();
+        _processReportQueueCts?.Dispose();
+        _processReportQueueCts = new();
+        var token = _processReportQueueCts.Token;
+        while (!token.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+
+            if (_discordClient.ConnectionState != ConnectionState.Connected) continue;
+            var reportChannelId = _configurationService.GetValue<ulong?>(nameof(ServicesConfiguration.DiscordChannelForReports));
+            if (reportChannelId == null) continue;
+
+            try
+            {
+                using (var scope = _services.CreateScope())
+                {
+                    _logger.LogInformation("Checking for Profile Reports");
+                    var dbContext = scope.ServiceProvider.GetRequiredService<MareDbContext>();
+                    if (!dbContext.UserProfileReports.Any())
+                    {
+                        continue;
+                    }
+
+                    var reports = await dbContext.UserProfileReports.ToListAsync().ConfigureAwait(false);
+                    var restChannel = await guild.GetTextChannelAsync(reportChannelId.Value).ConfigureAwait(false);
+
+                    foreach (var report in reports)
+                    {
+                        var reportedUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportedUserUID).ConfigureAwait(false);
+                        var reportedUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportedUserUID).ConfigureAwait(false);
+                        var reportingUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportingUserUID).ConfigureAwait(false);
+                        var reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportingUserUID).ConfigureAwait(false);
+                        var reportedUserProfile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
+                        EmbedBuilder eb = new();
+                        eb.WithTitle("Mare Synchronos Profile Report");
+
+                        StringBuilder reportedUserSb = new();
+                        StringBuilder reportingUserSb = new();
+                        reportedUserSb.Append(reportedUser.UID);
+                        reportingUserSb.Append(reportingUser.UID);
+                        if (reportedUserLodestone != null)
+                        {
+                            reportedUserSb.AppendLine($" (<@{reportedUserLodestone.DiscordId}>)");
+                        }
+                        if (reportingUserLodestone != null)
+                        {
+                            reportingUserSb.AppendLine($" (<@{reportingUserLodestone.DiscordId}>)");
+                        }
+                        eb.AddField("Reported User", reportedUserSb.ToString());
+                        eb.AddField("Reporting User", reportingUserSb.ToString());
+                        eb.AddField("Report Date (UTC)", report.ReportDate);
+                        eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
+                        eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
+                        eb.AddField("Reported User Profile Is NSFW", reportedUserProfile.IsNSFW);
+
+                        var cb = new ComponentBuilder();
+                        cb.WithButton("Dismiss Report", customId: $"mare-report-button-dismiss-{reportedUser.UID}", style: ButtonStyle.Primary);
+                        cb.WithButton("Ban profile", customId: $"mare-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
+                        cb.WithButton("Ban user", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("Dismiss and Ban Reporting user", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+
+                        if (!string.IsNullOrEmpty(reportedUserProfile.Base64ProfileImage))
+                        {
+                            var fileName = reportedUser.UID + "_profile_" + Guid.NewGuid().ToString("N") + ".png";
+                            eb.WithImageUrl($"attachment://{fileName}");
+                            using MemoryStream ms = new(Convert.FromBase64String(reportedUserProfile.Base64ProfileImage));
+                            await restChannel.SendFileAsync(ms, fileName, "User Report", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            var msg = await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
+                        }
+
+                        dbContext.Remove(report);
+                    }
+
+                    await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to process reports");
+            }
+        }
     }
 
     private async Task RemoveUsersNotInVanityRole(CancellationToken token)
