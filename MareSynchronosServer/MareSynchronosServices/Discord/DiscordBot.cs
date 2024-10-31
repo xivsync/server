@@ -106,7 +106,7 @@ internal class DiscordBot : IHostedService
             EmbedBuilder eb = new();
             eb.WithTitle($"权限不足");
             eb.WithDescription($"<@{userId}>: 你没有权限处理举报");
-            await arg.RespondAsync(embed: eb.Build()).ConfigureAwait(false);
+            await arg.RespondAsync(embed: eb.Build(), ephemeral:true).ConfigureAwait(false);
             return;
         }
 
