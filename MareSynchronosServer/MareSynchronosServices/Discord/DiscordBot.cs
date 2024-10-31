@@ -104,8 +104,8 @@ internal class DiscordBot : IHostedService
         if (user == null || (!user.User.IsModerator && !user.User.IsAdmin))
         {
             EmbedBuilder eb = new();
-            eb.WithTitle($"Cannot resolve report");
-            eb.WithDescription($"<@{userId}>: You have no rights to resolve this report");
+            eb.WithTitle($"权限不足");
+            eb.WithDescription($"<@{userId}>: 你没有权限处理举报");
             await arg.RespondAsync(embed: eb.Build()).ConfigureAwait(false);
             return;
         }
@@ -122,16 +122,16 @@ internal class DiscordBot : IHostedService
         switch (split[0])
         {
             case "dismiss":
-                builder.AddField("Resolution", $"Dismissed by <@{userId}>");
+                builder.AddField("决议", $"被 <@{userId}> 撤销");
                 builder.WithColor(Color.Green);
                 profile.FlaggedForReport = false;
                 await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                        MessageSeverity.Warning, "The Mare profile report against you has been evaluated and your profile re-enabled.")
+                        MessageSeverity.Warning, "一个针对你的举报已被撤销.")
                     .ConfigureAwait(false);
                 break;
 
             case "banreporting":
-                builder.AddField("Resolution", $"Dismissed by <@{userId}>, Reporting user banned");
+                builder.AddField("决议", $"举报被 <@{userId}> 撤销, 举报人被封禁");
                 builder.WithColor(Color.DarkGreen);
                 profile.FlaggedForReport = false;
                 var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
@@ -146,24 +146,24 @@ internal class DiscordBot : IHostedService
                     DiscordIdOrLodestoneAuth = regReporting.DiscordId.ToString()
                 });
                 await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                        MessageSeverity.Warning, "The Mare profile report against you has been evaluated and your profile re-enabled.")
+                        MessageSeverity.Warning, "一个针对你的举报已被撤销.")
                     .ConfigureAwait(false);
                 break;
 
             case "banprofile":
-                builder.AddField("Resolution", $"Profile has been banned by <@{userId}>");
+                builder.AddField("决议", $"档案被 <@{userId}> 封禁");
                 builder.WithColor(Color.Red);
                 profile.Base64ProfileImage = null;
                 profile.UserDescription = null;
                 profile.ProfileDisabled = true;
                 profile.FlaggedForReport = false;
                 await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                    MessageSeverity.Warning, "The Mare profile report against you has been evaluated and the profile functionality permanently disabled.")
+                    MessageSeverity.Warning, "因一个针对你的举报, 你的档案将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
                     .ConfigureAwait(false);
                 break;
 
             case "banuser":
-                builder.AddField("Resolution", $"User has been banned by <@{userId}>");
+                builder.AddField("决议", $"用户被 <@{userId}> 封禁");
                 builder.WithColor(Color.DarkRed);
                 var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
                 offendingUser.MarkForBan = true;
@@ -180,7 +180,7 @@ internal class DiscordBot : IHostedService
                     DiscordIdOrLodestoneAuth = reg.DiscordId.ToString()
                 });
                 await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                    MessageSeverity.Warning, "The Mare profile report against you has been evaluated and your account permanently banned.")
+                    MessageSeverity.Warning, "因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
                     .ConfigureAwait(false);
                 break;
         }
@@ -365,7 +365,7 @@ internal class DiscordBot : IHostedService
                             await dbContext.SaveChangesAsync().ConfigureAwait(false);
                         }
                         EmbedBuilder eb = new();
-                        eb.WithTitle("Mare Synchronos Profile Report");
+                        eb.WithTitle("Mare 举报");
 
                         StringBuilder reportedUserSb = new();
                         StringBuilder reportingUserSb = new();
@@ -379,25 +379,25 @@ internal class DiscordBot : IHostedService
                         {
                             reportingUserSb.AppendLine($" (<@{reportingUserLodestone.DiscordId}>)");
                         }
-                        eb.AddField("Reported User", reportedUserSb.ToString());
-                        eb.AddField("Reporting User", reportingUserSb.ToString());
-                        eb.AddField("Report Date (UTC)", report.ReportDate);
-                        eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
-                        eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
-                        eb.AddField("Reported User Profile Is NSFW", reportedUserProfile.IsNSFW);
+                        eb.AddField("被举报用户", reportedUserSb.ToString());
+                        eb.AddField("举报用户", reportingUserSb.ToString());
+                        eb.AddField("举报时间", $"<t:{new DateTimeOffset(report.ReportDate).ToUnixTimeSeconds()}:f>");
+                        eb.AddField("举报原因", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
+                        eb.AddField("被举报用户档案", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
+                        eb.AddField("档案是NSFW", reportedUserProfile.IsNSFW ? "是" : "否");
 
                         var cb = new ComponentBuilder();
-                        cb.WithButton("Dismiss Report", customId: $"mare-report-button-dismiss-{reportedUser.UID}", style: ButtonStyle.Primary);
-                        cb.WithButton("Ban profile", customId: $"mare-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
-                        cb.WithButton("Ban user", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
-                        cb.WithButton("Dismiss and Ban Reporting user", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("撤销举报", customId: $"mare-report-button-dismiss-{reportedUser.UID}", style: ButtonStyle.Primary);
+                        //cb.WithButton("Ban profile", customId: $"mare-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
+                        cb.WithButton("封禁用户", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("撤销并封禁举报者", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
 
                         if (!string.IsNullOrEmpty(reportedUserProfile.Base64ProfileImage))
                         {
                             var fileName = reportedUser.UID + "_profile_" + Guid.NewGuid().ToString("N") + ".png";
                             eb.WithImageUrl($"attachment://{fileName}");
                             using MemoryStream ms = new(Convert.FromBase64String(reportedUserProfile.Base64ProfileImage));
-                            await restChannel.SendFileAsync(ms, fileName, "User Report", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
+                            await restChannel.SendFileAsync(ms, fileName, "用户举报", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
                         }
                         else
                         {
