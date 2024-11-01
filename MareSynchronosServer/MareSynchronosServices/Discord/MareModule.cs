@@ -102,14 +102,14 @@ public class MareModule : InteractionModuleBase
         }
     }
 
-    private async Task<Embed> HandleMod(IUser discordUser, string arg, ulong discordUserId)
+    private async Task<Embed> HandleMod(IUser targetUser, string arg, ulong discordUserId)
     {
         var embed = new EmbedBuilder();
 
         using var scope = _services.CreateScope();
         using var db = scope.ServiceProvider.GetService<MareDbContext>();
-        var target = (await db.LodeStoneAuth.SingleOrDefaultAsync(a => a.DiscordId == discordUser.Id).ConfigureAwait(false))?.User?.UID;
-        
+        var target = (await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == targetUser.Id))?.User;
+
         if (!(await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == discordUserId))?.User?.IsAdmin ?? true)
         {
             embed.WithTitle("修改权限失败");
@@ -117,18 +117,17 @@ public class MareModule : InteractionModuleBase
         }
         else 
         {
-            var user = await db.Users.SingleOrDefaultAsync(u => u.UID == target).ConfigureAwait(false);
-            if (user != null)
+            if (target != null)
             {
-                user.IsModerator = arg switch
+                target.IsModerator = arg switch
                 {
                     "add" => true,
                     "remove" => false,
-                    _ => user.IsModerator,
+                    _ => target.IsModerator,
                 };
-                db.Users.Update(user);
+                db.Users.Update(target);
                 embed.WithTitle("已更新用户的权限");
-                embed.WithDescription($"{discordUser.Username}的权限已变更为: {(user.IsModerator ? "管理":"非管理")}");
+                embed.WithDescription($"{targetUser.Username}的权限已变更为: {(target.IsModerator ? "管理":"非管理")}");
             }
             else
             {
