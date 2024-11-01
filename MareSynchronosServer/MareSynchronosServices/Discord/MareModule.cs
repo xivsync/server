@@ -30,7 +30,7 @@ public class MareModule : InteractionModuleBase
     }
 
     [SlashCommand("userinfo", "显示您的用户信息")]
-    public async Task UserInfo([Summary("secondary_uid", "（可选）您的辅助 UID")] string? secondaryUid = null,
+    public async Task UserInfo([Summary("secondary_uid", "（可选）您的辅助UID")] string? secondaryUid = null,
         [Summary("discord_user", "仅限管理员：要检查的 Discord 用户")] IUser? discordUser = null,
         [Summary("uid", "仅限管理员：要检查的 UID")] string? uid = null)
     {
@@ -76,6 +76,70 @@ public class MareModule : InteractionModuleBase
 
             await RespondAsync(embeds: new Embed[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
         }
+    }
+    
+    [SlashCommand("mod", "仅限Admin：调整管理")]
+    public async Task Mod([Summary("discord_user", "仅限管理员：目标的 Discord 用户")] IUser discordUser = null,
+        [Summary("arg", "参数: add 或 remove")]string arg = null)
+    {
+        _logger.LogInformation("SlashCommand:{userId}:{Method}:{params}",
+            Context.Interaction.User.Id, nameof(Mod),
+            string.Join(",", new[] { $"{nameof(discordUser)}:{discordUser}", $"{nameof(arg)}:{arg}" }));
+
+        try
+        {
+            var embed = await HandleMod(discordUser, arg, Context.User.Id);
+
+            await RespondAsync(embeds: new[] { embed }, ephemeral: true).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            EmbedBuilder eb = new();
+            eb.WithTitle("发生了错误");
+            eb.WithDescription("请上报该BUG: " + Environment.NewLine + ex.Message + Environment.NewLine + ex.StackTrace + Environment.NewLine);
+
+            await RespondAsync(embeds: new Embed[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<Embed> HandleMod(IUser discordUser, string arg, ulong discordUserId)
+    {
+        var embed = new EmbedBuilder();
+
+        using var scope = _services.CreateScope();
+        using var db = scope.ServiceProvider.GetService<MareDbContext>();
+        var target = (await db.LodeStoneAuth.SingleOrDefaultAsync(a => a.DiscordId == discordUser.Id).ConfigureAwait(false))?.User?.UID;
+        
+        if (!(await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == discordUserId))?.User?.IsAdmin ?? true)
+        {
+            embed.WithTitle("修改权限失败");
+            embed.WithDescription("权限不足");
+        }
+        else 
+        {
+            var user = await db.Users.SingleOrDefaultAsync(u => u.UID == target).ConfigureAwait(false);
+            if (user != null)
+            {
+                user.IsModerator = arg switch
+                {
+                    "add" => true,
+                    "remove" => false,
+                    _ => user.IsModerator,
+                };
+                db.Users.Update(user);
+                embed.WithTitle("已更新用户的权限");
+                embed.WithDescription($"{discordUser.Username}的权限已变更为: {(user.IsModerator ? "管理":"非管理")}");
+            }
+            else
+            {
+                embed.WithTitle("修改权限失败");
+                embed.WithDescription("用户未找到");
+            }
+
+            await db.SaveChangesAsync();
+        }
+      
+        return embed.Build();
     }
 
     [SlashCommand("message", "仅管理员：向客户端发送消息")]
@@ -250,8 +314,7 @@ public class MareModule : InteractionModuleBase
         var lodestone = await db.LodeStoneAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User.UID == dbUser.UID).ConfigureAwait(false);
 
         eb.WithTitle("用户信息");
-        eb.WithDescription("这是 Discord 用户 <@" + userToCheckForDiscordId + "> 的信息" + Environment.NewLine + Environment.NewLine
-                           + "如果你想检查你的同步密钥是否正确, 访问 https://emn178.github.io/online-tools/sha256.html 并将您的同步密钥复制到上方的输入框，然后检查输出的同步密钥哈希值是否与下方提供的一致。");
+        eb.WithDescription("这是 Discord 用户 <@" + userToCheckForDiscordId + "> 的信息" + Environment.NewLine);
         eb.AddField("UID", dbUser.UID);
         if (!string.IsNullOrEmpty(dbUser.Alias))
         {
@@ -289,7 +352,7 @@ public class MareModule : InteractionModuleBase
             eb.AddField("角色识别码", identity);
         }
         
-        if (isAdminCall && !string.IsNullOrEmpty(lodestoneUser.HashedLodestoneId))
+        if (primaryUser.User.IsAdmin && !string.IsNullOrEmpty(lodestoneUser.HashedLodestoneId))
         {
             eb.AddField("LodeStone识别码", lodestoneUser.HashedLodestoneId);
         }

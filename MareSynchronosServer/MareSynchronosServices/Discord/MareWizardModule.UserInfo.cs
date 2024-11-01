@@ -62,7 +62,7 @@ public partial class MareWizardModule
         {
             eb.AddField("个性 UID", dbUser.Alias);
         }
-        eb.AddField("上一次在线(本地时间)", $"<t:{new DateTimeOffset(dbUser.LastLoggedIn.ToUniversalTime()).ToUnixTimeSeconds()}:f>" );
+        eb.AddField("上一次在线(本地时间)", $"<t:{new DateTimeOffset(dbUser.LastLoggedIn.ToUniversalTime()).ToUnixTimeSeconds()}:f>");
         eb.AddField("目前是否在线", !string.IsNullOrEmpty(identity));
 
         eb.AddField("加入的同步贝数量", groupsJoined.Count);

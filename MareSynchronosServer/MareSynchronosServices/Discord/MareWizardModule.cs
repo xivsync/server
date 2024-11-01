@@ -145,7 +145,7 @@ public partial class MareWizardModule : InteractionModuleBase
             + (hasAccount ? string.Empty : ("- 注册一个新的 Mare 账号 点击 \"🌒 注册\"" + Environment.NewLine))
             + (!hasAccount ? string.Empty : ("- 如果丢失了同步密钥 点击 \"🏥 恢复\"" + Environment.NewLine))
             + (hasAccount ? string.Empty : ("- 如果你更换了你的 Discord 账号 点击 \"🔗 重新连接\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 创建一个小号 Mare UID 点击 \"2️⃣ 辅助 UID\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- 创建一个小号 Mare UID 点击 \"2️⃣ 辅助UID\"" + Environment.NewLine))
             + (!hasAccount ? string.Empty : ("- 设置个性 Mare UID 点击 \"💅 个性 UID\"" + Environment.NewLine))
             + (!hasAccount ? string.Empty : ("- 删除你的大号或者小号 点击 \"⚠️ 删除\""))
             );
@@ -160,7 +160,7 @@ public partial class MareWizardModule : InteractionModuleBase
         {
             cb.WithButton("用户信息", "wizard-userinfo", ButtonStyle.Secondary, new Emoji("ℹ️"));
             cb.WithButton("恢复", "wizard-recover", ButtonStyle.Secondary, new Emoji("🏥"));
-            cb.WithButton("辅助 UID", "wizard-secondary", ButtonStyle.Secondary, new Emoji("2️⃣"));
+            cb.WithButton("辅助UID", "wizard-secondary", ButtonStyle.Secondary, new Emoji("2️⃣"));
             cb.WithButton("个性 UID", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💅"));
             cb.WithButton("删除", "wizard-delete", ButtonStyle.Danger, new Emoji("⚠️"));
         }

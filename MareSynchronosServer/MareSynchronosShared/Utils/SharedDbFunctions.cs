@@ -106,7 +106,7 @@ public static class SharedDbFunctions
         dbContext.GroupBans.RemoveRange(bannedinGroups);
         dbContext.GroupBans.RemoveRange(hasBannedInGroups);
 
-        _logger.LogInformation("User purged: {uid}", user.UID);
+        _logger.LogInformation($"User purged: {user.UID} - @{lodestone?.DiscordId} - {lodestone?.HashedLodestoneId}");
 
         dbContext.Auth.Remove(auth);
         dbContext.Users.Remove(user);

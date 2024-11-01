@@ -18,8 +18,8 @@ public partial class MareWizardModule
         using var mareDb = GetDbContext();
         EmbedBuilder eb = new();
         eb.WithTitle("删除账号");
-        eb.WithDescription("你可以在此删除你的主要或者辅助 UID。" + Environment.NewLine + Environment.NewLine
-            + "__提升: 删除你的主要 UID也会同时删除所有的辅助 UID。__" + Environment.NewLine + Environment.NewLine
+        eb.WithDescription("你可以在此删除你的主要或者辅助UID。" + Environment.NewLine + Environment.NewLine
+            + "__注意: 删除你的主要 UID也会同时删除所有的辅助UID。__" + Environment.NewLine + Environment.NewLine
             + "- 1️⃣ 是你的主要账号/UID" + Environment.NewLine
             + "- 2️⃣ 是你所有的辅助UID" + Environment.NewLine
             + "如果你在使用个性 UID的话，原始的UID会在账号选项的第二行显示。");
