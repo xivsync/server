@@ -122,7 +122,7 @@ internal class DiscordBot : IHostedService
         switch (split[0])
         {
             case "dismiss":
-                builder.AddField("决议", $"被 <@{userId}> 撤销");
+                builder.AddField("决议", $"举报被管理员 <@{userId}> 撤销");
                 builder.WithColor(Color.Green);
                 profile.FlaggedForReport = false;
                 await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
@@ -131,7 +131,7 @@ internal class DiscordBot : IHostedService
                 break;
 
             case "banreporting":
-                builder.AddField("决议", $"举报被 <@{userId}> 撤销, 举报人被封禁");
+                builder.AddField("决议", $"举报被管理员 <@{userId}> 撤销, 举报人被封禁");
                 builder.WithColor(Color.DarkGreen);
                 profile.FlaggedForReport = false;
                 var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
@@ -151,7 +151,7 @@ internal class DiscordBot : IHostedService
                 break;
 
             case "banprofile":
-                builder.AddField("决议", $"档案被 <@{userId}> 封禁");
+                builder.AddField("决议", $"档案被管理员 <@{userId}> 封禁");
                 builder.WithColor(Color.Red);
                 profile.Base64ProfileImage = null;
                 profile.UserDescription = null;
@@ -163,7 +163,7 @@ internal class DiscordBot : IHostedService
                 break;
 
             case "banuser":
-                builder.AddField("决议", $"用户被 <@{userId}> 封禁");
+                builder.AddField("决议", $"用户被管理员 <@{userId}> 封禁");
                 builder.WithColor(Color.DarkRed);
                 var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
                 offendingUser.MarkForBan = true;
@@ -397,11 +397,13 @@ internal class DiscordBot : IHostedService
                             var fileName = reportedUser.UID + "_profile_" + Guid.NewGuid().ToString("N") + ".png";
                             eb.WithImageUrl($"attachment://{fileName}");
                             using MemoryStream ms = new(Convert.FromBase64String(reportedUserProfile.Base64ProfileImage));
-                            await restChannel.SendFileAsync(ms, fileName, "用户举报", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
+                            var msg = await restChannel.SendFileAsync(ms, fileName, "用户举报", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
+                            await restChannel.CreateThreadAsync($"举报: {reportingUser} -> {reportedUser}", message: msg).ConfigureAwait(false);
                         }
                         else
                         {
                             var msg = await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
+                            await restChannel.CreateThreadAsync($"举报: {reportingUser} -> {reportedUser}", message: msg).ConfigureAwait(false);
                         }
 
                         dbContext.Remove(report);
