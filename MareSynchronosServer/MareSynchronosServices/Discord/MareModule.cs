@@ -259,7 +259,7 @@ public class MareModule : InteractionModuleBase
         if (primaryUser == null)
         {
             eb.WithTitle("账号不存在");
-            eb.WithDescription("没有与该Discord账号关联的Mare账号");
+            eb.WithDescription("没有与本Discord账号关联的Mare账号");
             return eb;
         }
 
@@ -280,7 +280,8 @@ public class MareModule : InteractionModuleBase
             }
             else if (uid != null)
             {
-                userInDb = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == uid || u.User.Alias == uid).ConfigureAwait(false);
+                var primary = (await db.Auth.SingleOrDefaultAsync(u => u.UserUID == uid && u.PrimaryUserUID != null))?.PrimaryUserUID ?? uid;//确认是否为子账号，如果是，查找主账号DC信息
+                userInDb = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == primary || u.User.Alias == primary).ConfigureAwait(false);
             }
 
             if (userInDb == null)
@@ -306,11 +307,16 @@ public class MareModule : InteractionModuleBase
             }
         }
 
+        var secondaryCheck = isAdminCall && uid != null && uid != dbUser?.UID;//查找的UID为子账号
+        if (secondaryCheck)
+        {
+            dbUser = (await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == uid))?.User;//显示子账号信息
+        }
+        
         var auth = await db.Auth.Include(u => u.PrimaryUser).SingleOrDefaultAsync(u => u.UserUID == dbUser.UID).ConfigureAwait(false);
         var groups = await db.Groups.Where(g => g.OwnerUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var groupsJoined = await db.GroupPairs.Where(g => g.GroupUserUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("UID:" + dbUser.UID).ConfigureAwait(false);
-        var lodestone = await db.LodeStoneAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User.UID == dbUser.UID).ConfigureAwait(false);
 
         eb.WithTitle("用户信息");
         eb.WithDescription("这是 Discord 用户 <@" + userToCheckForDiscordId + "> 的信息" + Environment.NewLine);
@@ -319,9 +325,9 @@ public class MareModule : InteractionModuleBase
         {
             eb.AddField("个性 UID", dbUser.Alias);
         }
-        if (showForSecondaryUser)
+        if (showForSecondaryUser || secondaryCheck)
         {
-            eb.AddField("主UID为 " + dbUser.UID, auth.PrimaryUserUID);
+            eb.AddField(dbUser.UID + " 的主UID:", auth.PrimaryUserUID);
         }
         else
         {
