@@ -127,7 +127,7 @@ public class MareModule : InteractionModuleBase
                 };
                 db.Users.Update(target);
                 embed.WithTitle("已更新用户的权限");
-                embed.WithDescription($"{targetUser.Username}的权限已变更为: {(target.IsModerator ? "管理":"非管理")}");
+                embed.WithDescription($"<@{targetUser.Id}> 的权限已变更为: {(target.IsModerator ? "管理员":"非管理员")}");
             }
             else
             {
