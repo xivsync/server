@@ -21,9 +21,9 @@ public class DistributionController : ControllerBase
     {
         _logger.LogInformation($"GetFile:{MareUser}:{file}");
 
-        var fs = await _cachedFileProvider.GetAndDownloadFileStream(file);
+        var fs = await _cachedFileProvider.DownloadAndGetLocalFileInfo(file);
         if (fs == null) return NotFound();
 
-        return File(fs, "application/octet-stream");
+        return PhysicalFile(fs.FullName, "application/octet-stream");
     }
 }
