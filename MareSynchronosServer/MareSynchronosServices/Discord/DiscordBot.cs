@@ -3,6 +3,9 @@ using Discord;
 using Discord.Interactions;
 using Discord.Rest;
 using Discord.WebSocket;
+using MareSynchronos.API.Data.Enum;
+using MareSynchronos.API.Dto.User;
+using MareSynchronos.API.SignalR;
 using MareSynchronosShared.Data;
 using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
@@ -22,7 +25,7 @@ internal class DiscordBot : IHostedService
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
     private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
-    private readonly CancellationTokenSource? _processReportQueueCts;
+    private CancellationTokenSource? _processReportQueueCts;
     private CancellationTokenSource? _updateStatusCts;
 
     public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<ServicesConfiguration> configuration,
@@ -61,6 +64,7 @@ internal class DiscordBot : IHostedService
             await _discordClient.StartAsync().ConfigureAwait(false);
 
             _discordClient.Ready += DiscordClient_Ready;
+            _discordClient.ButtonExecuted += ButtonExecutedHandler;
             _discordClient.InteractionCreated += async (x) =>
             {
                 var ctx = new SocketInteractionContext(_discordClient, x);
@@ -75,6 +79,8 @@ internal class DiscordBot : IHostedService
     {
         if (!string.IsNullOrEmpty(_configurationService.GetValueOrDefault(nameof(ServicesConfiguration.DiscordBotToken), string.Empty)))
         {
+            _discordClient.ButtonExecuted -= ButtonExecutedHandler;
+
             await _botServices.Stop().ConfigureAwait(false);
             _processReportQueueCts?.Cancel();
             _updateStatusCts?.Cancel();
@@ -91,8 +97,7 @@ internal class DiscordBot : IHostedService
         if (!id.StartsWith("mare-report-button", StringComparison.Ordinal)) return;
 
         var userId = arg.User.Id;
-        using var scope = _services.CreateScope();
-        using var dbContext = scope.ServiceProvider.GetRequiredService<MareDbContext>();
+        using var dbContext = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
         var user = await dbContext.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == userId).ConfigureAwait(false);
 
         if (user == null || (!user.User.IsModerator && !user.User.IsAdmin))
@@ -119,9 +124,9 @@ internal class DiscordBot : IHostedService
                 builder.AddField("决议", $"举报被管理员 <@{userId}> 撤销");
                 builder.WithColor(Color.Green);
                 profile.FlaggedForReport = false;
-                await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                        MessageSeverity.Warning, "一个针对你的举报已被撤销.")
-                    .ConfigureAwait(false);
+                // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
+                //         MessageSeverity.Warning, "一个针对你的举报已被撤销.")
+                //     .ConfigureAwait(false);
                 break;
 
             case "banreporting":
@@ -139,9 +144,9 @@ internal class DiscordBot : IHostedService
                 {
                     DiscordIdOrLodestoneAuth = regReporting.DiscordId.ToString()
                 });
-                await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                        MessageSeverity.Warning, "一个针对你的举报已被撤销.")
-                    .ConfigureAwait(false);
+                // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
+                //         MessageSeverity.Warning, "一个针对你的举报已被撤销.")
+                //     .ConfigureAwait(false);
                 break;
 
             case "banprofile":
@@ -151,9 +156,9 @@ internal class DiscordBot : IHostedService
                 profile.UserDescription = null;
                 profile.ProfileDisabled = true;
                 profile.FlaggedForReport = false;
-                await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                    MessageSeverity.Warning, "因一个针对你的举报, 你的档案将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
-                    .ConfigureAwait(false);
+                // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
+                //     MessageSeverity.Warning, "因一个针对你的举报, 你的档案将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
+                //     .ConfigureAwait(false);
                 break;
 
             case "banuser":
@@ -173,16 +178,16 @@ internal class DiscordBot : IHostedService
                 {
                     DiscordIdOrLodestoneAuth = reg.DiscordId.ToString()
                 });
-                await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                    MessageSeverity.Warning, "因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
-                    .ConfigureAwait(false);
+                // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
+                //     MessageSeverity.Warning, "因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
+                //     .ConfigureAwait(false);
                 break;
         }
 
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        await _mareHubContext.Clients.Users(otherPairs).SendAsync(nameof(IMareHub.Client_UserUpdateProfile), new UserDto(new(split[1]))).ConfigureAwait(false);
-        await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_UserUpdateProfile), new UserDto(new(split[1]))).ConfigureAwait(false);
+        // await _mareHubContext.Clients.Users(otherPairs).SendAsync(nameof(IMareHub.Client_UserUpdateProfile), new UserDto(new(split[1]))).ConfigureAwait(false);
+        // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_UserUpdateProfile), new UserDto(new(split[1]))).ConfigureAwait(false);
 
         await arg.Message.ModifyAsync(msg =>
         {
