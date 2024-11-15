@@ -1,6 +1,5 @@
 ﻿using Discord.Interactions;
 using Discord;
-using MareSynchronosShared.Data;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
 
@@ -15,7 +14,7 @@ public partial class MareWizardModule
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentDelete), Context.Interaction.User.Id);
 
-        using var mareDb = GetDbContext();
+        using var mareDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
         eb.WithTitle("删除账号");
         eb.WithDescription("你可以在此删除你的主要或者辅助UID。" + Environment.NewLine + Environment.NewLine
@@ -38,7 +37,7 @@ public partial class MareWizardModule
 
         _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionDeleteAccount), Context.Interaction.User.Id, uid);
 
-        using var mareDb = GetDbContext();
+        using var mareDb = await GetDbContext().ConfigureAwait(false);
         bool isPrimary = mareDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID == null;
         EmbedBuilder eb = new();
         eb.WithTitle($"你确定要删除 {uid} 吗？");
@@ -88,7 +87,7 @@ public partial class MareWizardModule
             {
                 var maxGroupsByUser = _mareClientConfigurationService.GetValueOrDefault(nameof(ServerConfiguration.MaxGroupUserCount), 3);
 
-                using var db = GetDbContext();
+                using var db = await GetDbContext().ConfigureAwait(false);
                 var user = db.Users.Single(u => u.UID == uid);
                 await SharedDbFunctions.PurgeUser(_logger, user, db, maxGroupsByUser).ConfigureAwait(false);
 

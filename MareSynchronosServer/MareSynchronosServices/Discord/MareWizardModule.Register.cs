@@ -22,8 +22,8 @@ public partial class MareWizardModule
         eb.WithDescription("在这里，您可以开始使用此 Discord 的 Mare Synchronos 服务器进行注册。" + Environment.NewLine + Environment.NewLine
             + "- 准备好您的石之家 UID (例如 10000000)" + Environment.NewLine
             + "  - 注册需要您使用生成的验证码修改您的石之家个人资料" + Environment.NewLine
-            + "  - 如果您无法编辑自己的个人资料，您需要拥有付费的 FF14 帐户或可以协助您注册的人" + Environment.NewLine
-            + "- 不要在移动设备上使用此功能，因为您需要能够复制生成的密钥" + Environment.NewLine);
+            + "- 不要在移动设备上使用此功能，因为您需要能够复制生成的密钥" + Environment.NewLine
+            + "# 仔细阅读注册流程. 再~慢~一~点~.");
         ComponentBuilder cb = new();
         AddHome(cb);
         cb.WithButton("开始注册", "wizard-register-start", ButtonStyle.Primary, emote: new Emoji("🌒"));
@@ -37,7 +37,7 @@ public partial class MareWizardModule
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentRegisterStart), Context.Interaction.User.Id);
 
-        using var db = GetDbContext();
+        using var db = await GetDbContext().ConfigureAwait(false);
         var entry = await db.LodeStoneAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id && u.StartedAt != null).ConfigureAwait(false);
         if (entry != null)
         {
@@ -123,7 +123,7 @@ public partial class MareWizardModule
             if (verified)
             {
                 eb.WithColor(Color.Green);
-                using var db = _services.CreateScope().ServiceProvider.GetRequiredService<MareDbContext>();
+                using var db = await GetDbContext().ConfigureAwait(false);
                 var (uid, key) = await HandleAddUser(db).ConfigureAwait(false);
                 eb.WithTitle($"注册成功，您的UID：{uid}");
                 eb.WithDescription("这是您的私人密钥。 不要与任何人共享此私人密钥。 **如果你失去了它，它就永远失去了。**"
@@ -134,6 +134,8 @@ public partial class MareWizardModule
                                              + Environment.NewLine
                                              + "__注意: 密钥仅包括英文 ABCDEF 和数字 0 - 9.__"
                                              + Environment.NewLine
+                                             + " __注意: 建议使用OAuth2登录,密钥登录可能在未来会被放弃支持.__"
+                                             + Environment.NewLine
                                              + "您应该尽快连接，以免被自动清理。"
                                              + Environment.NewLine
                                              + "玩得开心。");
@@ -143,10 +145,14 @@ public partial class MareWizardModule
             {
                 eb.WithColor(Color.Gold);
                 eb.WithTitle("验证注册失败");
-                eb.WithDescription("机器人无法在您的石之家个人资料中找到所需的验证码。" + Environment.NewLine + Environment.NewLine
-                    + "请重新启动您的验证过程，并确保 _提交您的个人资料_ 以便正确保存。" + Environment.NewLine + Environment.NewLine
-                    + "**请确保你的个人资料对所有人公开，否则机器人将无法正常读取。**" + Environment.NewLine + Environment.NewLine
-                    + "机器人正在寻找的代码是" + Environment.NewLine + Environment.NewLine
+                eb.WithDescription("机器人无法在您的石之家个人资料中找到所需的验证码。" 
+                    + Environment.NewLine + Environment.NewLine
+                    + "请重新启动您的验证过程，并确保提交您的个人资料 _两次_ 以便正确保存。" 
+                    + Environment.NewLine + Environment.NewLine
+                    + "**请确保你的个人资料对所有人公开，否则机器人将无法正常读取。**" 
+                    + Environment.NewLine + Environment.NewLine
+                    + "## 你 __必须__ 输入以下代码让机器人查询:" 
+                    + Environment.NewLine + Environment.NewLine
                     + "**" + verificationCode + "**");
                 cb.WithButton("取消", "wizard-register", emote: new Emoji("❌"));
                 cb.WithButton("重试", "wizard-register-verify:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("🔁"));
@@ -168,11 +174,9 @@ public partial class MareWizardModule
         }
 
         // check if userid is already in db
-        using var scope = _services.CreateScope();
-
         var hashedLodestoneId = StringUtils.Sha256String(lodestoneId.ToString());
 
-        using var db = scope.ServiceProvider.GetService<MareDbContext>();
+        using var db = await GetDbContext().ConfigureAwait(false);
 
         // check if discord id or lodestone id is banned
         if (db.BannedRegistrations.Any(a => a.DiscordIdOrLodestoneAuth == hashedLodestoneId))
@@ -192,16 +196,18 @@ public partial class MareWizardModule
         // check if lodestone id is already in db
         embed.WithTitle("验证您的角色");
         embed.WithDescription("将以下密钥添加到您的角色个人简介中：https://ff14risingstones.web.sdo.com/pc/index.html#/me/settings/main"
-                            + Environment.NewLine + Environment.NewLine
-                            + $"**{lodestoneAuth}**"
-                            + Environment.NewLine + Environment.NewLine
-                            + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
-                            + Environment.NewLine + Environment.NewLine
-                            + "添加并保存后，使用下面的按钮验证并完成注册并接收用于 Mare Synchronos 的密钥。"
-                            + Environment.NewLine
-                            + "__验证后，您可以从您的个人简介中删除该条目。__"
-                            + Environment.NewLine + Environment.NewLine
-                            + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
+                              + Environment.NewLine
+                              + "__NOTE: If the link does not lead you to your character edit profile page, you need to log in and set up your privacy settings!__"
+                              + Environment.NewLine + Environment.NewLine
+                              + $"**{lodestoneAuth}**"
+                              + Environment.NewLine + Environment.NewLine
+                              + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
+                              + Environment.NewLine + Environment.NewLine
+                              + "添加并保存后，使用下面的按钮验证并完成注册并接收用于 Mare Synchronos 的密钥。"
+                              + Environment.NewLine
+                              + "__验证后，您可以从您的个人简介中删除该条目。__"
+                              + Environment.NewLine + Environment.NewLine
+                              + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
         _botServices.DiscordLodestoneMapping[Context.User.Id] = lodestoneId.ToString();
 
         return (true, lodestoneAuth);

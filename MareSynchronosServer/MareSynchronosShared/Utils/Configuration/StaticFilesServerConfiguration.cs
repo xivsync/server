@@ -22,6 +22,8 @@ public class StaticFilesServerConfiguration : MareConfigurationBase
     public double ColdStorageSizeHardLimitInGiB { get; set; } = -1;
     public int ColdStorageUnusedFileRetentionPeriodInDays { get; set; } = 30;
     [RemoteConfiguration]
+    public double SpeedTestHoursRateLimit { get; set; } = 0.5;
+    [RemoteConfiguration]
     public Uri CdnFullUrl { get; set; } = null;
     [RemoteConfiguration]
     public List<CdnShardConfiguration> CdnShardConfiguration { get; set; } = new();
