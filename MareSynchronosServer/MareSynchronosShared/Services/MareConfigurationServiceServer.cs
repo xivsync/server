@@ -6,14 +6,19 @@ using System.Text;
 
 namespace MareSynchronosShared.Services;
 
-public class MareConfigurationServiceServer<T> : IConfigurationService<T> where T : class, IMareConfiguration
+public sealed class MareConfigurationServiceServer<T> : IDisposable, IConfigurationService<T> where T : class, IMareConfiguration
 {
     private readonly IOptionsMonitor<T> _config;
+    private bool _disposed;
+
     public bool IsMain => true;
+    public event EventHandler ConfigChangedEvent;
+    private IDisposable _onChanged;
 
     public MareConfigurationServiceServer(IOptionsMonitor<T> config)
     {
         _config = config;
+        _onChanged = config.OnChange((c) => { ConfigChangedEvent?.Invoke(this, EventArgs.Empty); });
     }
 
     public T1 GetValueOrDefault<T1>(string key, T1 defaultValue)
@@ -47,5 +52,16 @@ public class MareConfigurationServiceServer<T> : IConfigurationService<T> where 
             sb.AppendLine($"{prop.Name} (IsRemote: {isRemote}) => {value}");
         }
         return sb.ToString();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _onChanged.Dispose();
+        _disposed = true;
     }
 }
