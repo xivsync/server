@@ -211,57 +211,11 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
     [Authorize(Policy = "Identified")]
     public async Task<bool> UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto)
     {
-        // // simply validate that they are an existing pair.
-        // var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        // if (pairPerms == null)
-        // {
-        //      await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
-        //      return false;
-        // }
-        // if (!pairPerms.PairCanApplyOwnMoodlesToYou)
-        // {
-        //     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You do not have permission to apply moodles to this user!").ConfigureAwait(false);
-        //     return false;
-        // }
-
-        // var moodlesToApply = dto.Statuses;
-
-        // if (moodlesToApply.Any(m => m.Type == StatusType.Positive && !pairPerms.AllowPositiveStatusTypes))
-        // {
-        //     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses have a positive type, which this pair does not allow!").ConfigureAwait(false);
-        //     return false;
-        // }
-        //
-        // if (moodlesToApply.Any(m => m.Type == StatusType.Negative && !pairPerms.AllowNegativeStatusTypes))
-        // {
-        //     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses have a negative type, which this pair does not allow!").ConfigureAwait(false);
-        //     return false;
-        // }
-        //
-        // if (moodlesToApply.Any(m => m.Type == StatusType.Special && !pairPerms.AllowSpecialStatusTypes))
-        // {
-        //     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses have a special type, which this pair does not allow!").ConfigureAwait(false);
-        //     return false;
-        // }
-        //
-        // if (moodlesToApply.Any(m => m.NoExpire && !pairPerms.AllowPermanentMoodles))
-        // {
-        //     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses is permanent, which this pair does not allow!").ConfigureAwait(false);
-        //     return false;
-        // }
-        //
-        // // ensure to only check this condition as one to be flagged if it exceeds the time and is NOT marked as permanent.
-        // if (moodlesToApply.Any(m => new TimeSpan(m.Days, m.Hours, m.Minutes, m.Seconds) > pairPerms.MaxMoodleTime && m.NoExpire == false))
-        // {
-        //     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses exceeds the max allowed time!").ConfigureAwait(false);
-        //     return false;
-        // }
-
-        // // construct a new dto with the client caller as the user.
-        // var newDto = new ApplyMoodlesByStatusDto(User: UserUID.ToUserDataFromUID(), Statuses: moodlesToApply, Type: dto.Type);
+        // construct a new dto with the client caller as the user.
+        var newDto = new ApplyMoodlesByStatusDto(User: new UserData(UserUID), Statuses: dto.Statuses, Type: dto.Type);
 
         // notify the recipient pair to apply the moodles.
-        await Clients.User(dto.User.UID).Client_UserApplyMoodlesByStatus(dto).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserApplyMoodlesByStatus(newDto).ConfigureAwait(false);
 
         return true;
     }
