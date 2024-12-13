@@ -212,7 +212,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
     public async Task<bool> UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto)
     {
         // construct a new dto with the client caller as the user.
-        var newDto = new ApplyMoodlesByStatusDto(User: new UserData(UserUID), Statuses: dto.Statuses, Type: dto.Type);
+        var newDto = new ApplyMoodlesByStatusDto(User: new UserData(UserUID), Statuses: dto.Statuses);
 
         // notify the recipient pair to apply the moodles.
         await Clients.User(dto.User.UID).Client_UserApplyMoodlesByStatus(newDto).ConfigureAwait(false);
