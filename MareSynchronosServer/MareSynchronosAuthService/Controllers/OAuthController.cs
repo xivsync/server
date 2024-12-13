@@ -141,7 +141,8 @@ public class OAuthController : AuthControllerBase
         if (mareUser == null)
             return BadRequest("未找到与目标Discord账号关联的Mare账号.");
 
-        Logger.LogWarning($"mareUser.User!.UID = {mareUser.User?.UID} ; discordUserId = {discordUserId} ; discordUserName = {discordUserName}");
+        if (string.IsNullOrEmpty(mareUser.User?.UID))
+            return BadRequest("UID不存在, 请重新检查或联系管理员");
 
         var jwt = CreateJwt([
             new Claim(MareClaimTypes.Uid, mareUser.User!.UID),
