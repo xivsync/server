@@ -26,7 +26,7 @@ internal class DiscordBot : IHostedService
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
     private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
-    private readonly CancellationTokenSource? _processReportQueueCts;
+    private CancellationTokenSource? _processReportQueueCts;
     private CancellationTokenSource? _clientConnectedCts;
 
     public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<ServicesConfiguration> configuration,
