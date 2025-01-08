@@ -12,6 +12,7 @@ using StackExchange.Redis;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Web;
@@ -44,6 +45,8 @@ public class OAuthController : AuthControllerBase
         var discordClientId = Configuration.GetValueOrDefault<string?>(nameof(AuthServiceConfiguration.DiscordOAuthClientId), null);
         if (discordClientSecret == null || discordClientId == null || discordOAuthUri == null)
             return BadRequest("服务器不支持Oauth2验证");
+
+        Logger.LogDebug("Starting OAuth Process for {session}", sessionId);
 
         var cookieOptions = new CookieOptions
         {
@@ -86,6 +89,8 @@ public class OAuthController : AuthControllerBase
         if (string.IsNullOrEmpty(reqId)) return BadRequest("未找到Cookie");
         if (string.IsNullOrEmpty(code)) return BadRequest("未找到OAuth2码");
 
+        Logger.LogDebug("Discord OAuth Callback for {session}", reqId);
+
         var query = HttpUtility.ParseQueryString(discordOAuthUri.Query);
         using var client = new HttpClient();
         var parameters = new Dictionary<string, string>
@@ -103,6 +108,7 @@ public class OAuthController : AuthControllerBase
 
         if (!response.IsSuccessStatusCode)
         {
+            Logger.LogDebug("Failed to get Discord token for {session}", reqId);
             return BadRequest("获取Discord token失败");
         }
 
@@ -116,6 +122,7 @@ public class OAuthController : AuthControllerBase
 
         if (!meResponse.IsSuccessStatusCode)
         {
+            Logger.LogDebug("Failed to get Discord user info for {session}", reqId);
             return BadRequest("获取Discord用户信息失败");
         }
 
@@ -129,6 +136,7 @@ public class OAuthController : AuthControllerBase
         }
         catch (Exception ex)
         {
+            Logger.LogDebug(ex, "Failed to parse Discord user info for {session}", reqId);
             return BadRequest("尝试从 @me 获得Token失败");
         }
 
@@ -138,25 +146,35 @@ public class OAuthController : AuthControllerBase
         using var dbContext = await MareDbContextFactory.CreateDbContextAsync();
 
         var mareUser = await dbContext.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == discordUserId);
-        if (mareUser == null)
-            return BadRequest("未找到与目标Discord账号关联的Mare账号.");
+        if (mareUser == default)
+        {
+            Logger.LogDebug("未找到对应的Mare用户 {session}, DiscordId: {id}", reqId, discordUserId);
 
-        if (string.IsNullOrEmpty(mareUser.User?.UID))
-            return BadRequest("UID不存在, 请重新检查或联系管理员");
+            return BadRequest("未找到与本Discord账号对应的Mare账号.");
+        }
 
-        var jwt = CreateJwt([
-            new Claim(MareClaimTypes.Uid, mareUser.User!.UID),
-            new Claim(MareClaimTypes.Expires, DateTime.UtcNow.AddDays(14).Ticks.ToString(CultureInfo.InvariantCulture)),
-            new Claim(MareClaimTypes.DiscordId, discordUserId.ToString()),
-            new Claim(MareClaimTypes.DiscordUser, discordUserName),
-            new Claim(MareClaimTypes.OAuthLoginToken, true.ToString())
+        JwtSecurityToken? jwt = null;
+        try
+        {
+            jwt = CreateJwt([
+                new Claim(MareClaimTypes.Uid, mareUser.User!.UID),
+                new Claim(MareClaimTypes.Expires, DateTime.UtcNow.AddDays(14).Ticks.ToString(CultureInfo.InvariantCulture)),
+                new Claim(MareClaimTypes.DiscordId, discordUserId.ToString()),
+                new Claim(MareClaimTypes.DiscordUser, discordUserName),
+                new Claim(MareClaimTypes.OAuthLoginToken, true.ToString())
             ]);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to create the OAuth2 token for session {session} and Discord user {user}", reqId, discordUserId);
+            return BadRequest("创建 OAuth2 令牌失败. 请联系管理员.");
+        }
 
         _cookieOAuthResponse[reqId] = jwt.RawData;
         _ = Task.Run(async () =>
         {
             bool isRemoved = false;
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 30; i++)
             {
                 await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
                 if (!_cookieOAuthResponse.ContainsKey(reqId))
@@ -169,6 +187,7 @@ public class OAuthController : AuthControllerBase
                 _cookieOAuthResponse.TryRemove(reqId, out _);
         });
 
+        Logger.LogDebug("Setting JWT response for {session}, process complete", reqId);
         return Ok("OAuth2 token已生成. 插件将自动获取. 你可以关闭本标签页了.");
     }
 
@@ -208,19 +227,25 @@ public class OAuthController : AuthControllerBase
     [HttpGet(MareAuth.OAuth_GetDiscordOAuthToken)]
     public async Task<IActionResult> GetDiscordOAuthToken([FromQuery] string sessionId)
     {
+        Logger.LogDebug("Starting to wait for GetDiscordOAuthToken for {session}", sessionId);
         using CancellationTokenSource cts = new();
-        cts.CancelAfter(TimeSpan.FromSeconds(60));
+        cts.CancelAfter(TimeSpan.FromSeconds(55));
         while (!_cookieOAuthResponse.ContainsKey(sessionId) && !cts.Token.IsCancellationRequested)
         {
             await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
         }
         if (cts.IsCancellationRequested)
         {
+            Logger.LogDebug("Timeout elapsed for {session}", sessionId);
             return BadRequest("未收到 Discord OAuth2 响应");
         }
         _cookieOAuthResponse.TryRemove(sessionId, out var token);
         if (token == null)
+        {
+            Logger.LogDebug("No token found for {session}", sessionId);
             return BadRequest("OAuth 连接未建立");
+        }
+        Logger.LogDebug("Returning JWT for {session}, process complete", sessionId);
         return Content(token);
     }
 

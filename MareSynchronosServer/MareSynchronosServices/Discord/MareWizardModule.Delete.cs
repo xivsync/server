@@ -2,6 +2,8 @@
 using Discord;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
+using Discord.WebSocket;
+using Microsoft.EntityFrameworkCore;
 
 namespace MareSynchronosServices.Discord;
 
@@ -88,7 +90,8 @@ public partial class MareWizardModule
                 var maxGroupsByUser = _mareClientConfigurationService.GetValueOrDefault(nameof(ServerConfiguration.MaxGroupUserCount), 3);
 
                 using var db = await GetDbContext().ConfigureAwait(false);
-                var user = db.Users.Single(u => u.UID == uid);
+                var user = await db.Users.SingleAsync(u => u.UID == uid).ConfigureAwait(false);
+                var lodestone = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == uid).ConfigureAwait(false);
                 await SharedDbFunctions.PurgeUser(_logger, user, db, maxGroupsByUser).ConfigureAwait(false);
 
                 EmbedBuilder eb = new();
@@ -100,6 +103,12 @@ public partial class MareWizardModule
                 await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
 
                 await _botServices.LogToChannel($"{Context.User.Mention} DELETE SUCCESS: {uid}").ConfigureAwait(false);
+
+                // only remove role if deleted uid has lodestone attached (== primary uid)
+                if (lodestone != null)
+                {
+                    await _botServices.RemoveRegisteredRoleAsync(Context.Interaction.User).ConfigureAwait(false);
+                }
             }
         }
         catch (Exception ex)

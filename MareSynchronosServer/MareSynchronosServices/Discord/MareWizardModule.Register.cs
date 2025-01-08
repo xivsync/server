@@ -4,6 +4,10 @@ using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Models;
+using MareSynchronosShared.Services;
+using MareSynchronosShared.Utils.Configuration;
+using Discord.Rest;
+using Discord.WebSocket;
 
 namespace MareSynchronosServices.Discord;
 
@@ -100,6 +104,7 @@ public partial class MareWizardModule
         ComponentBuilder cb = new();
         bool stillEnqueued = _botServices.VerificationQueue.Any(k => k.Key == Context.User.Id);
         bool verificationRan = _botServices.DiscordVerifiedUsers.TryGetValue(Context.User.Id, out bool verified);
+        bool registerSuccess = false;
         if (!verificationRan)
         {
             if (stillEnqueued)
@@ -140,6 +145,7 @@ public partial class MareWizardModule
                                              + Environment.NewLine
                                              + "玩得开心。");
                 AddHome(cb);
+                registerSuccess = true;
             }
             else
             {
@@ -160,6 +166,8 @@ public partial class MareWizardModule
         }
 
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
+        if (registerSuccess)
+            await _botServices.AddRegisteredRoleAsync(Context.Interaction.User).ConfigureAwait(false);
     }
 
     private async Task<(bool, string)> HandleRegisterModalAsync(EmbedBuilder embed, LodestoneModal arg)

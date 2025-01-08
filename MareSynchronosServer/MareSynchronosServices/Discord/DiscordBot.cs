@@ -11,6 +11,7 @@ using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json.Linq;
 using StackExchange.Redis;
 
 namespace MareSynchronosServices.Discord;
@@ -25,8 +26,8 @@ internal class DiscordBot : IHostedService
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
     private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
-    private CancellationTokenSource? _processReportQueueCts;
-    private CancellationTokenSource? _updateStatusCts;
+    private readonly CancellationTokenSource? _processReportQueueCts;
+    private CancellationTokenSource? _clientConnectedCts;
 
     public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<ServicesConfiguration> configuration,
         IDbContextFactory<MareDbContext> dbContextFactory,
@@ -40,7 +41,8 @@ internal class DiscordBot : IHostedService
         _connectionMultiplexer = connectionMultiplexer;
         _discordClient = new(new DiscordSocketConfig()
         {
-            DefaultRetryMode = RetryMode.AlwaysRetry
+            DefaultRetryMode = RetryMode.AlwaysRetry,
+            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.GuildMembers
         });
 
         _discordClient.Log += Log;
@@ -70,8 +72,26 @@ internal class DiscordBot : IHostedService
                 var ctx = new SocketInteractionContext(_discordClient, x);
                 await _interactionModule.ExecuteCommandAsync(ctx, _services).ConfigureAwait(false);
             };
+            _discordClient.UserJoined += OnUserJoined;
 
             await _botServices.Start().ConfigureAwait(false);
+        }
+    }
+
+    private async Task OnUserJoined(SocketGuildUser arg)
+    {
+        try
+        {
+            using MareDbContext dbContext = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
+            var alreadyRegistered = await dbContext.LodeStoneAuth.AnyAsync(u => u.DiscordId == arg.Id).ConfigureAwait(false);
+            if (alreadyRegistered)
+            {
+                await _botServices.AddRegisteredRoleAsync(arg).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to set user role on join");
         }
     }
 
@@ -83,7 +103,7 @@ internal class DiscordBot : IHostedService
 
             await _botServices.Stop().ConfigureAwait(false);
             _processReportQueueCts?.Cancel();
-            _updateStatusCts?.Cancel();
+            _clientConnectedCts?.Cancel();
 
             await _discordClient.LogoutAsync().ConfigureAwait(false);
             await _discordClient.StopAsync().ConfigureAwait(false);
@@ -201,17 +221,17 @@ internal class DiscordBot : IHostedService
     {
         var guild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
         await _interactionModule.RegisterCommandsToGuildAsync(guild.Id, true).ConfigureAwait(false);
-        _updateStatusCts?.Cancel();
-        _updateStatusCts?.Dispose();
-        _updateStatusCts = new();
-        _ = UpdateStatusAsync(_updateStatusCts.Token);
+        _clientConnectedCts?.Cancel();
+        _clientConnectedCts?.Dispose();
+        _clientConnectedCts = new();
+        _ = UpdateStatusAsync(_clientConnectedCts.Token);
 
         await CreateOrUpdateModal(guild).ConfigureAwait(false);
         _botServices.UpdateGuild(guild);
         await _botServices.LogToChannel("Bot startup complete.").ConfigureAwait(false);
-        _ = UpdateVanityRoles(guild, _updateStatusCts.Token);
-        _ = RemoveUsersNotInVanityRole(_updateStatusCts.Token);
-        _ = ProcessReportsQueue();
+        _ = UpdateVanityRoles(guild, _clientConnectedCts.Token);
+        _ = RemoveUsersNotInVanityRole(_clientConnectedCts.Token);
+        _ = RemoveUnregisteredUsers(_clientConnectedCts.Token);
     }
 
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
@@ -321,7 +341,7 @@ internal class DiscordBot : IHostedService
         return Task.CompletedTask;
     }
 
-        private async Task ProcessReportsQueue()
+    private async Task ProcessReportsQueue()
     {
         var guild = (await _discordClient.Rest.GetGuildsAsync()).First();
 
@@ -419,10 +439,94 @@ internal class DiscordBot : IHostedService
         }
     }
 
+    private async Task RemoveUnregisteredUsers(CancellationToken token)
+    {
+        var guild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await ProcessUserRoles(guild, token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // do nothing
+            }
+            catch (Exception ex)
+            {
+                await _botServices.LogToChannel($"Error during user procesing: {ex.Message}").ConfigureAwait(false);
+            }
+
+            await Task.Delay(TimeSpan.FromDays(1)).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ProcessUserRoles(RestGuild guild, CancellationToken token)
+    {
+        using MareDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(token).ConfigureAwait(false);
+        var roleId = _configurationService.GetValueOrDefault<ulong?>(nameof(ServicesConfiguration.DiscordRoleRegistered), 0);
+        var kickUnregistered = _configurationService.GetValueOrDefault(nameof(ServicesConfiguration.KickNonRegisteredUsers), false);
+        if (roleId == null) return;
+
+        var registrationRole = guild.Roles.FirstOrDefault(f => f.Id == roleId.Value);
+        var registeredUsers = new HashSet<ulong>(await dbContext.LodeStoneAuth.AsNoTracking().Select(c => c.DiscordId).ToListAsync().ConfigureAwait(false));
+
+        var executionStartTime = DateTimeOffset.UtcNow;
+
+        int processedUsers = 0;
+        int addedRoles = 0;
+        int kickedUsers = 0;
+        int totalRoles = 0;
+        int toRemoveUsers = 0;
+        int freshUsers = 0;
+
+        await _botServices.LogToChannel($"Starting to process registered users: Adding Role {registrationRole.Name}. Kick Stale Unregistered: {kickUnregistered}.").ConfigureAwait(false);
+
+        await foreach (var userList in guild.GetUsersAsync(new RequestOptions { CancelToken = token }).ConfigureAwait(false))
+        {
+            _logger.LogInformation("Processing chunk of {count} users, total processed: {proc}, total roles: {total}, roles added: {added}, users kicked: {kicked}, users plan to kick: {planToKick}, fresh user: {fresh}",
+                userList.Count, processedUsers, totalRoles + addedRoles, addedRoles, kickedUsers, toRemoveUsers, freshUsers);
+            foreach (var user in userList)
+            {
+                if (user.IsBot) continue;
+
+                if (registeredUsers.Contains(user.Id))
+                {
+                    bool roleAdded = await _botServices.AddRegisteredRoleAsync(user, registrationRole).ConfigureAwait(false);
+                    if (roleAdded) addedRoles++;
+                    else totalRoles++;
+                }
+                else
+                {
+                    if ((executionStartTime - user.JoinedAt.Value).TotalDays > 7)
+                    {
+                        if (kickUnregistered)
+                        {
+                            await _botServices.KickUserAsync(user).ConfigureAwait(false);
+                            kickedUsers++;
+                        }
+                        else
+                        {
+                            toRemoveUsers++;
+                        }
+                    }
+                    else
+                    {
+                        freshUsers++;
+                    }
+                }
+
+                token.ThrowIfCancellationRequested();
+                processedUsers++;
+            }
+        }
+
+        await _botServices.LogToChannel($"Processing registered users finished. Processed {processedUsers} users, added {addedRoles} roles and kicked {kickedUsers} users").ConfigureAwait(false);
+    }
+
     private async Task RemoveUsersNotInVanityRole(CancellationToken token)
     {
         var guild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
-        var appId = await _discordClient.GetApplicationInfoAsync().ConfigureAwait(false);
 
         while (!token.IsCancellationRequested)
         {
@@ -477,10 +581,10 @@ internal class DiscordBot : IHostedService
     private async Task CheckVanityForGroup(RestGuild restGuild, Dictionary<ulong, string> allowedRoleIds, MareDbContext db, Group group, CancellationToken token)
     {
         var groupPrimaryUser = group.OwnerUID;
-        var primaryUser = await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.UserUID == group.OwnerUID).ConfigureAwait(false);
-        if (primaryUser != null)
+        var groupOwner = await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.UserUID == group.OwnerUID).ConfigureAwait(false);
+        if (groupOwner != null && !string.IsNullOrEmpty(groupOwner.PrimaryUserUID))
         {
-            groupPrimaryUser = primaryUser.User.UID;
+            groupPrimaryUser = groupOwner.PrimaryUserUID;
         }
 
         var lodestoneUser = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(f => f.User.UID == groupPrimaryUser).ConfigureAwait(false);
