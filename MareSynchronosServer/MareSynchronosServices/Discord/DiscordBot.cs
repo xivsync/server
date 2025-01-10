@@ -10,6 +10,7 @@ using MareSynchronosShared.Data;
 using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils.Configuration;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Linq;
 using StackExchange.Redis;
@@ -24,6 +25,7 @@ internal class DiscordBot : IHostedService
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<DiscordBot> _logger;
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
+
     private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
     private CancellationTokenSource? _processReportQueueCts;
@@ -61,6 +63,7 @@ internal class DiscordBot : IHostedService
             _interactionModule.Log += Log;
             await _interactionModule.AddModuleAsync(typeof(MareModule), _services).ConfigureAwait(false);
             await _interactionModule.AddModuleAsync(typeof(MareWizardModule), _services).ConfigureAwait(false);
+
 
             await _discordClient.LoginAsync(TokenType.Bot, token).ConfigureAwait(false);
             await _discordClient.StartAsync().ConfigureAwait(false);
@@ -232,6 +235,7 @@ internal class DiscordBot : IHostedService
         _ = UpdateVanityRoles(guild, _clientConnectedCts.Token);
         _ = RemoveUsersNotInVanityRole(_clientConnectedCts.Token);
         _ = RemoveUnregisteredUsers(_clientConnectedCts.Token);
+        _ = ProcessReportsQueue();
     }
 
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
