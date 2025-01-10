@@ -9,6 +9,7 @@ using MareSynchronos.API.SignalR;
 using MareSynchronosShared.Data;
 using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
+using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -147,6 +148,7 @@ internal class DiscordBot : IHostedService
                 builder.AddField("决议", $"举报被管理员 <@{userId}> 撤销");
                 builder.WithColor(Color.Green);
                 profile.FlaggedForReport = false;
+                await SendMessageToClients("一个针对你的举报已被撤销.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
                 //         MessageSeverity.Warning, "一个针对你的举报已被撤销.")
                 //     .ConfigureAwait(false);
@@ -167,6 +169,7 @@ internal class DiscordBot : IHostedService
                 {
                     DiscordIdOrLodestoneAuth = regReporting.DiscordId.ToString()
                 });
+                await SendMessageToClients("一个针对你的举报已被撤销.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
                 //         MessageSeverity.Warning, "一个针对你的举报已被撤销.")
                 //     .ConfigureAwait(false);
@@ -179,6 +182,8 @@ internal class DiscordBot : IHostedService
                 profile.UserDescription = null;
                 profile.ProfileDisabled = true;
                 profile.FlaggedForReport = false;
+                await SendMessageToClients("因一个针对你的举报, 你的档案将被封禁, 如需申诉请前往MareCN Discord寻找管理员.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
+
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
                 //     MessageSeverity.Warning, "因一个针对你的举报, 你的档案将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
                 //     .ConfigureAwait(false);
@@ -201,6 +206,7 @@ internal class DiscordBot : IHostedService
                 {
                     DiscordIdOrLodestoneAuth = reg.DiscordId.ToString()
                 });
+                await SendMessageToClients("因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
                 //     MessageSeverity.Warning, "因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
                 //     .ConfigureAwait(false);
@@ -646,4 +652,22 @@ internal class DiscordBot : IHostedService
             await Task.Delay(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
         }
     }
+
+        public async Task SendMessageToClients([Summary("message", "要发送的消息")] string message,
+        [Summary("severity", "消息严重性")] MessageSeverity messageType = MessageSeverity.Information,
+        [Summary("uid", "要发送给的用户UID")] string? uid = null)
+    {
+        try
+        {
+            using HttpClient c = new HttpClient();
+            await c.PostAsJsonAsync(new Uri(_configurationService.GetValue<Uri>
+                (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "消息发送失败: ");
+        }
+    }
+
 }
