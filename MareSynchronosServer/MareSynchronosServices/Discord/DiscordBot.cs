@@ -428,19 +428,25 @@ internal class DiscordBot : IHostedService
                         cb.WithButton("封禁用户", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
                         cb.WithButton("撤销并封禁举报者", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
 
+                        RestUserMessage msg = null;
                         if (!string.IsNullOrEmpty(reportedUserProfile.Base64ProfileImage))
                         {
                             var fileName = reportedUser.UID + "_profile_" + Guid.NewGuid().ToString("N") + ".png";
                             eb.WithImageUrl($"attachment://{fileName}");
                             using MemoryStream ms = new(Convert.FromBase64String(reportedUserProfile.Base64ProfileImage));
-                            var msg = await restChannel.SendFileAsync(ms, fileName, "用户举报", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
-                            await restChannel.CreateThreadAsync($"举报: {reportingUser.UID} -> {reportedUser.UID}", message: msg).ConfigureAwait(false);
+                            msg = await restChannel.SendFileAsync(ms, fileName, "用户举报", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
                         }
                         else
                         {
-                            var msg = await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
-                            await restChannel.CreateThreadAsync($"举报: {reportingUser.UID} -> {reportedUser.UID}", message: msg).ConfigureAwait(false);
+                            msg = await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
                         }
+
+                        var thread = await restChannel.CreateThreadAsync(
+                            name: $"举报: {reportingUser.UID} -> {reportedUser.UID}",
+                            message: msg , type: ThreadType.PrivateThread,
+                            autoArchiveDuration: ThreadArchiveDuration.ThreeDays,
+                            invitable: true).ConfigureAwait(false);
+                        await thread.SendMessageAsync($"请双方 <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> 在72h内提供相关资料供 <@&1301329024680857692> 进行讨论.").ConfigureAwait(false);
 
                         dbContext.Remove(report);
                     }
