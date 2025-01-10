@@ -2,7 +2,6 @@
 using MareSynchronosShared.Metrics;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils.Configuration;
-using Microsoft.EntityFrameworkCore;
 
 namespace MareSynchronosStaticFilesServer.Services;
 

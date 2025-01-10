@@ -2,12 +2,9 @@
 using Discord;
 using Discord.Net;
 using Discord.Rest;
-using Discord.WebSocket;
 using MareSynchronosShared.Metrics;
-using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils.Configuration;
-using StackExchange.Redis;
 
 namespace MareSynchronosServices.Discord;
 

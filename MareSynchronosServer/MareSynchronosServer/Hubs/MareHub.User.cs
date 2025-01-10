@@ -4,7 +4,6 @@ using System.Text.RegularExpressions;
 using MareSynchronos.API.Data;
 using MareSynchronos.API.Data.Enum;
 using MareSynchronos.API.Data.Extensions;
-using MareSynchronos.API.Dto;
 using MareSynchronos.API.Dto.User;
 using MareSynchronosServer.Utils;
 using MareSynchronosShared.Metrics;

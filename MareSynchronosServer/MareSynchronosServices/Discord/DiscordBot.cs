@@ -4,16 +4,12 @@ using Discord.Interactions;
 using Discord.Rest;
 using Discord.WebSocket;
 using MareSynchronos.API.Data.Enum;
-using MareSynchronos.API.Dto.User;
-using MareSynchronos.API.SignalR;
 using MareSynchronosShared.Data;
 using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json.Linq;
 using StackExchange.Redis;
 
 namespace MareSynchronosServices.Discord;

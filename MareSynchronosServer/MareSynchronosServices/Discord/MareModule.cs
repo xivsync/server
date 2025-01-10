@@ -2,7 +2,6 @@
 using Discord.Interactions;
 using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
-using Prometheus;
 using MareSynchronosShared.Models;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Services;

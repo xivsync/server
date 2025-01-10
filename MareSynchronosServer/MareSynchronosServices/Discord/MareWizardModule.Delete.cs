@@ -2,7 +2,6 @@
 using Discord;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
-using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 
 namespace MareSynchronosServices.Discord;

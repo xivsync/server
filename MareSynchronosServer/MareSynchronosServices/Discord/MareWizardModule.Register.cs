@@ -4,10 +4,6 @@ using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Models;
-using MareSynchronosShared.Services;
-using MareSynchronosShared.Utils.Configuration;
-using Discord.Rest;
-using Discord.WebSocket;
 
 namespace MareSynchronosServices.Discord;
 
