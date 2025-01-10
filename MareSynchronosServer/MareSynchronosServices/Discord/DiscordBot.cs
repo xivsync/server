@@ -428,12 +428,12 @@ internal class DiscordBot : IHostedService
                             eb.WithImageUrl($"attachment://{fileName}");
                             using MemoryStream ms = new(Convert.FromBase64String(reportedUserProfile.Base64ProfileImage));
                             var msg = await restChannel.SendFileAsync(ms, fileName, "用户举报", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
-                            await restChannel.CreateThreadAsync($"举报: {reportingUser} -> {reportedUser}", message: msg).ConfigureAwait(false);
+                            await restChannel.CreateThreadAsync($"举报: {reportingUser.UID} -> {reportedUser.UID}", message: msg).ConfigureAwait(false);
                         }
                         else
                         {
                             var msg = await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
-                            await restChannel.CreateThreadAsync($"举报: {reportingUser} -> {reportedUser}", message: msg).ConfigureAwait(false);
+                            await restChannel.CreateThreadAsync($"举报: {reportingUser.UID} -> {reportedUser.UID}", message: msg).ConfigureAwait(false);
                         }
 
                         dbContext.Remove(report);
