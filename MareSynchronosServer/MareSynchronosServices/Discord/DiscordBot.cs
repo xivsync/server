@@ -207,6 +207,36 @@ internal class DiscordBot : IHostedService
                 //     MessageSeverity.Warning, "因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
                 //     .ConfigureAwait(false);
                 break;
+            case "banboth":
+                builder.AddField("决议", $"双方用户均被管理员 <@{userId}> 封禁");
+                builder.WithColor(Color.DarkRed);
+                offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+                offendingUser.MarkForBan = true;
+                profile.Base64ProfileImage = null;
+                profile.UserDescription = null;
+                profile.ProfileDisabled = true;
+                reg = await dbContext.LodeStoneAuth.SingleAsync(u => u.User.UID == offendingUser.UserUID).ConfigureAwait(false);
+                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+                {
+                    DiscordIdOrLodestoneAuth = reg.HashedLodestoneId
+                });
+                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+                {
+                    DiscordIdOrLodestoneAuth = reg.DiscordId.ToString()
+                });
+
+                profile.FlaggedForReport = false;
+                reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
+                reportingUser.MarkForBan = true;
+                regReporting = await dbContext.LodeStoneAuth.SingleAsync(u => u.User.UID == reportingUser.UserUID).ConfigureAwait(false);
+                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+                {
+                    DiscordIdOrLodestoneAuth = regReporting.HashedLodestoneId
+                });
+                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+                {
+                    DiscordIdOrLodestoneAuth = regReporting.DiscordId.ToString()
+                });
         }
 
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -427,6 +457,8 @@ internal class DiscordBot : IHostedService
                         //cb.WithButton("Ban profile", customId: $"mare-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
                         cb.WithButton("封禁用户", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
                         cb.WithButton("撤销并封禁举报者", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("封禁双方", customId: $"mare-report-button-banboth-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+
 
                         RestUserMessage msg = null;
                         if (!string.IsNullOrEmpty(reportedUserProfile.Base64ProfileImage))
