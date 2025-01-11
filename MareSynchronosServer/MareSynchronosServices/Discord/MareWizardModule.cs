@@ -118,7 +118,7 @@ public partial class MareWizardModule : InteractionModuleBase
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         bool hasAccount = await mareDb.LodeStoneAuth.AnyAsync(u => u.DiscordId == Context.User.Id && u.StartedAt == null).ConfigureAwait(false);
 
-        if (init)
+        //if (init)
         {
             bool isBanned = await mareDb.BannedRegistrations.AnyAsync(u => u.DiscordIdOrLodestoneAuth == Context.User.Id.ToString()).ConfigureAwait(false);
 
@@ -128,6 +128,7 @@ public partial class MareWizardModule : InteractionModuleBase
                 ebBanned.WithTitle("You are not welcome here");
                 ebBanned.WithDescription("Your Discord account is banned");
                 await RespondAsync(embed: ebBanned.Build(), ephemeral: true).ConfigureAwait(false);
+                _logger.LogInformation("Banned user interacted {method}:{userId}", nameof(StartWizard), Context.Interaction.User.Id);
                 return;
             }
         }
