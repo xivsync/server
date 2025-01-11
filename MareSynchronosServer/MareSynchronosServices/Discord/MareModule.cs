@@ -363,4 +363,40 @@ public class MareModule : InteractionModuleBase
 
         return eb;
     }
+
+    [SlashCommand("banuser", "封禁用户")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task BanUser([Summary("uid", "用户uid")] string uid)
+    {
+
+        using var scope = _services.CreateScope();
+        using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
+
+        if (!(await dbContext.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == Context.Interaction.User.Id))?.User?.IsAdmin ?? true)
+        {
+            await RespondAsync("权限不足", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        var user = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
+        if (user.MarkForBan)
+        {
+            await RespondAsync("错误，用具已被封禁", ephemeral:true).ConfigureAwait(false);
+            return;
+        }
+        user.MarkForBan = true;
+        var lodeStoneAuth = await dbContext.LodeStoneAuth.SingleAsync(u => u.User.UID == user.UserUID || u.User.UID == user.PrimaryUserUID).ConfigureAwait(false);
+        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+        {
+            DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
+        });
+        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+        {
+            DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
+        });
+        await dbContext.SaveChangesAsync().ConfigureAwait(false);
+        await RespondAsync($"已将用户 {uid} 添加到封禁列表", ephemeral:false).ConfigureAwait(false);
+        _logger.LogInformation($"Admin {Context.Interaction.User.Username} banned {uid}");
+
+    }
 }

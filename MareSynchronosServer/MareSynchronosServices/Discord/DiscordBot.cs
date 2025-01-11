@@ -237,6 +237,7 @@ internal class DiscordBot : IHostedService
                 {
                     DiscordIdOrLodestoneAuth = regReporting.DiscordId.ToString()
                 });
+                break;
         }
 
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
