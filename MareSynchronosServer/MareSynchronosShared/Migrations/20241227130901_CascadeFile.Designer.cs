@@ -3,6 +3,7 @@ using System;
 using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,13 +12,15 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MareSynchronosServer.Migrations
 {
     [DbContext(typeof(MareDbContext))]
-    partial class MareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241227130901_CascadeFile")]
+    partial class CascadeFile
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.0")
+                .HasAnnotation("ProductVersion", "8.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -131,10 +134,6 @@ namespace MareSynchronosServer.Migrations
                         .HasColumnType("text")
                         .HasColumnName("glamourer_data");
 
-                    b.Property<string>("ManipulationData")
-                        .HasColumnType("text")
-                        .HasColumnName("manipulation_data");
-
                     b.Property<int>("ShareType")
                         .HasColumnType("integer")
                         .HasColumnName("share_type");
@@ -165,26 +164,12 @@ namespace MareSynchronosServer.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("parent_uploader_uid");
 
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("AllowedGroupGID")
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("allowed_group_gid");
-
                     b.Property<string>("AllowedUserUID")
                         .HasColumnType("character varying(10)")
                         .HasColumnName("allowed_user_uid");
 
-                    b.HasKey("ParentId", "ParentUploaderUID", "Id")
+                    b.HasKey("ParentId", "ParentUploaderUID", "AllowedUserUID")
                         .HasName("pk_chara_data_allowance");
-
-                    b.HasIndex("AllowedGroupGID")
-                        .HasDatabaseName("ix_chara_data_allowance_allowed_group_gid");
 
                     b.HasIndex("AllowedUserUID")
                         .HasDatabaseName("ix_chara_data_allowance_allowed_user_uid");
@@ -262,15 +247,11 @@ namespace MareSynchronosServer.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("parent_uploader_uid");
 
-                    b.Property<string>("GamePath")
-                        .HasColumnType("text")
-                        .HasColumnName("game_path");
-
                     b.Property<string>("Hash")
                         .HasColumnType("text")
                         .HasColumnName("hash");
 
-                    b.HasKey("ParentId", "ParentUploaderUID", "GamePath")
+                    b.HasKey("ParentId", "ParentUploaderUID", "Hash")
                         .HasName("pk_chara_data_orig_files");
 
                     b.HasIndex("ParentId")
@@ -782,43 +763,6 @@ namespace MareSynchronosServer.Migrations
                     b.ToTable("user_profile_data", (string)null);
                 });
 
-            modelBuilder.Entity("MareSynchronosShared.Models.UserProfileDataReport", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("ReportDate")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("report_date");
-
-                    b.Property<string>("ReportReason")
-                        .HasColumnType("text")
-                        .HasColumnName("report_reason");
-
-                    b.Property<string>("ReportedUserUID")
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("reported_user_uid");
-
-                    b.Property<string>("ReportingUserUID")
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("reporting_user_uid");
-
-                    b.HasKey("Id")
-                        .HasName("pk_user_profile_data_reports");
-
-                    b.HasIndex("ReportedUserUID")
-                        .HasDatabaseName("ix_user_profile_data_reports_reported_user_uid");
-
-                    b.HasIndex("ReportingUserUID")
-                        .HasDatabaseName("ix_user_profile_data_reports_reporting_user_uid");
-
-                    b.ToTable("user_profile_data_reports", (string)null);
-                });
-
             modelBuilder.Entity("MareSynchronosShared.Models.Auth", b =>
                 {
                     b.HasOne("MareSynchronosShared.Models.User", "PrimaryUser")
@@ -850,16 +794,11 @@ namespace MareSynchronosServer.Migrations
 
             modelBuilder.Entity("MareSynchronosShared.Models.CharaDataAllowance", b =>
                 {
-                    b.HasOne("MareSynchronosShared.Models.Group", "AllowedGroup")
-                        .WithMany()
-                        .HasForeignKey("AllowedGroupGID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .HasConstraintName("fk_chara_data_allowance_groups_allowed_group_gid");
-
                     b.HasOne("MareSynchronosShared.Models.User", "AllowedUser")
                         .WithMany()
                         .HasForeignKey("AllowedUserUID")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
                         .HasConstraintName("fk_chara_data_allowance_users_allowed_user_uid");
 
                     b.HasOne("MareSynchronosShared.Models.CharaData", "Parent")
@@ -868,8 +807,6 @@ namespace MareSynchronosServer.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_chara_data_allowance_chara_data_parent_id_parent_uploader_u");
-
-                    b.Navigation("AllowedGroup");
 
                     b.Navigation("AllowedUser");
 
@@ -1110,23 +1047,6 @@ namespace MareSynchronosServer.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("MareSynchronosShared.Models.UserProfileDataReport", b =>
-                {
-                    b.HasOne("MareSynchronosShared.Models.User", "ReportedUser")
-                        .WithMany()
-                        .HasForeignKey("ReportedUserUID")
-                        .HasConstraintName("fk_user_profile_data_reports_users_reported_user_uid");
-
-                    b.HasOne("MareSynchronosShared.Models.User", "ReportingUser")
-                        .WithMany()
-                        .HasForeignKey("ReportingUserUID")
-                        .HasConstraintName("fk_user_profile_data_reports_users_reporting_user_uid");
-
-                    b.Navigation("ReportedUser");
-
-                    b.Navigation("ReportingUser");
-                });
-                
             modelBuilder.Entity("MareSynchronosShared.Models.CharaData", b =>
                 {
                     b.Navigation("AllowedIndividiuals");

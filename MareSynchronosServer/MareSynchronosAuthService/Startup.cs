@@ -17,6 +17,7 @@ using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
 using MareSynchronosShared.Utils.Configuration;
+using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace MareSynchronosAuthService;
 
@@ -93,7 +94,7 @@ public class Startup
 
     private static void ConfigureAuthorization(IServiceCollection services)
     {
-        services.AddTransient<IAuthorizationHandler, UserRequirementHandler>();
+        services.AddTransient<IAuthorizationHandler, RedisDbUserRequirementHandler>();
         services.AddTransient<IAuthorizationHandler, ValidTokenRequirementHandler>();
         services.AddTransient<IAuthorizationHandler, ExistingUserRequirementHandler>();
 
@@ -170,18 +171,19 @@ public class Startup
         }));
     }
 
-    private static void ConfigureRedis(IServiceCollection services, IConfigurationSection mareConfig)
+    private void ConfigureRedis(IServiceCollection services, IConfigurationSection mareConfig)
     {
         // configure redis for SignalR
         var redisConnection = mareConfig.GetValue(nameof(ServerConfiguration.RedisConnectionString), string.Empty);
-
         var options = ConfigurationOptions.Parse(redisConnection);
 
         var endpoint = options.EndPoints[0];
         string address = "";
         int port = 0;
+        
         if (endpoint is DnsEndPoint dnsEndPoint) { address = dnsEndPoint.Host; port = dnsEndPoint.Port; }
         if (endpoint is IPEndPoint ipEndPoint) { address = ipEndPoint.Address.ToString(); port = ipEndPoint.Port; }
+        /*
         var redisConfiguration = new RedisConfiguration()
         {
             AbortOnConnectFail = true,
@@ -204,9 +206,13 @@ public class Startup
             MaxValueLength = 1024,
             PoolSize = mareConfig.GetValue(nameof(ServerConfiguration.RedisPool), 50),
             SyncTimeout = options.SyncTimeout,
-        };
+        };*/
 
-        services.AddStackExchangeRedisExtensions<SystemTextJsonSerializer>(redisConfiguration);
+        var muxer = ConnectionMultiplexer.Connect(options);
+        var db = muxer.GetDatabase();
+        services.AddSingleton<IDatabase>(db);
+
+        _logger.LogInformation("Setting up Redis to connect to {host}:{port}", address, port);
     }
     private void ConfigureConfigServices(IServiceCollection services)
     {

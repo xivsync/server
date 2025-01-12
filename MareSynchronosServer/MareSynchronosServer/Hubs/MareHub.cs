@@ -38,6 +38,8 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
     private readonly Version _expectedClientVersion;
     private readonly Lazy<MareDbContext> _dbContextLazy;
     private MareDbContext DbContext => _dbContextLazy.Value;
+    private readonly int _maxCharaDataByUser;
+    private readonly int _maxCharaDataByUserVanity;
 
     public MareHub(MareMetrics mareMetrics,
         IDbContextFactory<MareDbContext> mareDbContextFactory, ILogger<MareHub> logger, SystemInfoService systemInfoService,
@@ -52,6 +54,8 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
         _maxGroupUserCount = configuration.GetValueOrDefault(nameof(ServerConfiguration.MaxGroupUserCount), 100);
         _fileServerAddress = configuration.GetValue<Uri>(nameof(ServerConfiguration.CdnFullUrl));
         _expectedClientVersion = configuration.GetValueOrDefault(nameof(ServerConfiguration.ExpectedClientVersion), new Version(0, 0, 0));
+        _maxCharaDataByUser = configuration.GetValueOrDefault(nameof(ServerConfiguration.MaxCharaDataByUser), 10);
+        _maxCharaDataByUserVanity = configuration.GetValueOrDefault(nameof(ServerConfiguration.MaxCharaDataByUserVanity), 50);
         _contextAccessor = contextAccessor;
         _redis = redisDb;
         _onlineSyncedPairCacheService = onlineSyncedPairCacheService;
@@ -110,6 +114,8 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
                 MaxGroupsJoinedByUser = _maxJoinedGroupsByUser,
                 MaxGroupUserCount = _maxGroupUserCount,
                 FileServerAddress = _fileServerAddress,
+                MaxCharaData = _maxCharaDataByUser,
+                MaxCharaDataVanity = _maxCharaDataByUserVanity,
             },
             DefaultPreferredPermissions = new DefaultPermissionsDto()
             {
