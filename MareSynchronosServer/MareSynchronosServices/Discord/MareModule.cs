@@ -165,7 +165,7 @@ public class MareModule : InteractionModuleBase
         try
         {
             using HttpClient c = new HttpClient();
-            await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>
+            var data = await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>
                 (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
                 .ConfigureAwait(false);
 
@@ -191,12 +191,14 @@ public class MareModule : InteractionModuleBase
                     await discordChannel.SendMessageAsync(embed: eb.Build());
                 }
             }
+            data.EnsureSuccessStatusCode();
 
             await RespondAsync("消息已发送", ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            await RespondAsync("消息发送失败: " + ex.ToString(), ephemeral: true).ConfigureAwait(false);
+            await RespondAsync($"对{new Uri(_mareServicesConfiguration.GetValue<Uri>
+                (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage")} 消息发送失败: " + ex.Message, ephemeral: true).ConfigureAwait(false);
         }
     }
 
