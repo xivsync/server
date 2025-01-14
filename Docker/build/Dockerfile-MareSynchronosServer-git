@@ -1,4 +1,4 @@
-#FROM mcr.microsoft.com/dotnet/sdk:9.0 as BUILD
+FROM mcr.microsoft.com/dotnet/sdk:9.0 as BUILD
 
 RUN git clone --recurse-submodules https://github.com/Penumbra-Sync/server
 
