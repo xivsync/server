@@ -17,15 +17,17 @@ public class MareModule : InteractionModuleBase
     private readonly IServiceProvider _services;
     private readonly IConfigurationService<ServicesConfiguration> _mareServicesConfiguration;
     private readonly IConnectionMultiplexer _connectionMultiplexer;
+    private readonly ServerTokenGenerator _serverTokenGenerator;
 
     public MareModule(ILogger<MareModule> logger, IServiceProvider services,
         IConfigurationService<ServicesConfiguration> mareServicesConfiguration,
-        IConnectionMultiplexer connectionMultiplexer)
+        IConnectionMultiplexer connectionMultiplexer, ServerTokenGenerator serverTokenGenerator)
     {
         _logger = logger;
         _services = services;
         _mareServicesConfiguration = mareServicesConfiguration;
         _connectionMultiplexer = connectionMultiplexer;
+        _serverTokenGenerator = serverTokenGenerator;
     }
 
     [SlashCommand("userinfo", "显示您的用户信息")]
@@ -165,6 +167,7 @@ public class MareModule : InteractionModuleBase
         try
         {
             using HttpClient c = new HttpClient();
+            c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
             var data = await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>
                 (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
                 .ConfigureAwait(false);
