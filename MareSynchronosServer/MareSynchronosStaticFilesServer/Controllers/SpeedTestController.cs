@@ -30,7 +30,7 @@ public class SpeedTestController : ControllerBase
         if (_memoryCache.TryGetValue<DateTime>(user, out var value))
         {
             var hoursRemaining = value.Subtract(DateTime.UtcNow).TotalHours;
-            return StatusCode(429, $"Can perform speedtest every {speedtestLimit} hours. {hoursRemaining:F2} hours remain.");
+            return StatusCode(429, $"每 {speedtestLimit} 小时才能进行一次测速. 剩余 {hoursRemaining:F2} 小时.");
         }
 
         await _speedtestSemaphore.WaitAsync(cancellationToken);
@@ -51,7 +51,7 @@ public class SpeedTestController : ControllerBase
         }
         catch (OperationCanceledException)
         {
-            return StatusCode(499, "Cancelled");
+            return StatusCode(499, "取消");
         }
         finally
         {
