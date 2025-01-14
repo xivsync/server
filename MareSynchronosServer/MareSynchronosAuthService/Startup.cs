@@ -3,8 +3,6 @@ using MareSynchronosShared.Metrics;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils;
 using Microsoft.AspNetCore.Mvc.Controllers;
-using StackExchange.Redis.Extensions.Core.Configuration;
-using StackExchange.Redis.Extensions.System.Text.Json;
 using StackExchange.Redis;
 using System.Net;
 using MareSynchronosAuthService.Services;
@@ -17,7 +15,6 @@ using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Prometheus;
 using MareSynchronosShared.Utils.Configuration;
-using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace MareSynchronosAuthService;
 

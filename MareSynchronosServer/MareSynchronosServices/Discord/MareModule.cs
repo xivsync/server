@@ -1,5 +1,4 @@
-﻿using System.Text;
-using Discord;
+﻿using Discord;
 using Discord.Interactions;
 using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +8,6 @@ using MareSynchronosShared.Services;
 using StackExchange.Redis;
 using MareSynchronos.API.Data.Enum;
 using MareSynchronosShared.Utils.Configuration;
-using Newtonsoft.Json;
 
 namespace MareSynchronosServices.Discord;
 
@@ -170,17 +168,9 @@ public class MareModule : InteractionModuleBase
         {
             using HttpClient c = new HttpClient();
             c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
-            // var data = await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>
-            //     (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
-            //     .ConfigureAwait(false);
-            var clientMessage = new ClientMessage(messageType, message, uid ?? string.Empty);
-            var mainServerAddress = _mareServicesConfiguration.GetValue<Uri>(nameof(ServicesConfiguration.MainServerAddress));
-            var requestUri = new Uri(mainServerAddress, "/msgc/sendMessage");
-            string jsonContent = JsonConvert.SerializeObject(clientMessage);
-            _logger.LogInformation(jsonContent);
-            using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-            using var response = await c.PostAsync(requestUri, content).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
+            await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>
+                (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
+                .ConfigureAwait(false);
 
             var discordChannelForMessages = _mareServicesConfiguration.GetValueOrDefault<ulong?>(nameof(ServicesConfiguration.DiscordChannelForMessages), null);
             if (uid == null && discordChannelForMessages != null)
@@ -205,7 +195,7 @@ public class MareModule : InteractionModuleBase
                 }
             }
 
-            await RespondAsync("消息已发送:" + jsonContent, ephemeral: true).ConfigureAwait(false);
+            await RespondAsync("消息已发送", ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

@@ -10,7 +10,6 @@ using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic.CompilerServices;
 using StackExchange.Redis;
 
 namespace MareSynchronosServices.Discord;
@@ -701,9 +700,7 @@ internal class DiscordBot : IHostedService
         }
     }
 
-        public async Task SendMessageToClients([Summary("message", "要发送的消息")] string message,
-        [Summary("severity", "消息严重性")] MessageSeverity messageType = MessageSeverity.Information,
-        [Summary("uid", "要发送给的用户UID")] string? uid = null)
+    public async Task SendMessageToClients(string message, MessageSeverity messageType = MessageSeverity.Information, string? uid = null)
     {
         try
         {

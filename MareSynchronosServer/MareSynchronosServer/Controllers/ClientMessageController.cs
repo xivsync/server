@@ -25,7 +25,6 @@ public class ClientMessageController : Controller
     public async Task<IActionResult> SendMessage([FromBody] ClientMessage msg)
     {
         bool hasUid = !string.IsNullOrEmpty(msg.UID);
-        _logger.LogInformation($"Sending message: {msg.Message} {msg.Severity} to {(hasUid ? msg.UID : "All Users")}");
         if (!hasUid)
         {
             _logger.LogInformation("Sending Message of severity {severity} to all online users: {message}", msg.Severity, msg.Message);

@@ -1,7 +1,6 @@
 ﻿using MareSynchronos.API.Dto.User;
 using Prometheus;
 using System.Collections.Concurrent;
-using System.Globalization;
 
 namespace MareSynchronosServer.Services;
 
