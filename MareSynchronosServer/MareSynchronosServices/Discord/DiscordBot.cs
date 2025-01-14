@@ -10,6 +10,7 @@ using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic.CompilerServices;
 using StackExchange.Redis;
 
 namespace MareSynchronosServices.Discord;
@@ -22,6 +23,7 @@ internal class DiscordBot : IHostedService
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<DiscordBot> _logger;
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
+    private readonly ServerTokenGenerator _serverTokenGenerator;
 
     private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
@@ -30,7 +32,7 @@ internal class DiscordBot : IHostedService
 
     public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<ServicesConfiguration> configuration,
         IDbContextFactory<MareDbContext> dbContextFactory,
-        ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer)
+        ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer, ServerTokenGenerator serverTokenGenerator)
     {
         _botServices = botServices;
         _services = services;
@@ -41,8 +43,9 @@ internal class DiscordBot : IHostedService
         _discordClient = new(new DiscordSocketConfig()
         {
             DefaultRetryMode = RetryMode.AlwaysRetry,
-            //GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.GuildMembers
+            GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.GuildMembers
         });
+        _serverTokenGenerator = serverTokenGenerator;
 
         _discordClient.Log += Log;
     }
@@ -705,6 +708,7 @@ internal class DiscordBot : IHostedService
         try
         {
             using HttpClient c = new HttpClient();
+            c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
             await c.PostAsJsonAsync(new Uri(_configurationService.GetValue<Uri>
                 (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
                 .ConfigureAwait(false);
