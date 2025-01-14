@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+﻿using System.Text;
 using Discord;
 using Discord.Interactions;
 using MareSynchronosShared.Data;
@@ -9,6 +9,7 @@ using MareSynchronosShared.Services;
 using StackExchange.Redis;
 using MareSynchronos.API.Data.Enum;
 using MareSynchronosShared.Utils.Configuration;
+using Newtonsoft.Json;
 
 namespace MareSynchronosServices.Discord;
 
@@ -79,7 +80,7 @@ public class MareModule : InteractionModuleBase
             await RespondAsync(embeds: new Embed[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
         }
     }
-    
+
     [SlashCommand("mod", "仅限Admin：调整管理")]
     public async Task Mod([Summary("discord_user", "仅限管理员：目标的 Discord 用户")] IUser discordUser = null,
         [Summary("arg", "参数: add 或 remove")]string arg = null)
@@ -117,7 +118,7 @@ public class MareModule : InteractionModuleBase
             embed.WithTitle("修改权限失败");
             embed.WithDescription("权限不足");
         }
-        else 
+        else
         {
             if (target != null)
             {
@@ -139,7 +140,7 @@ public class MareModule : InteractionModuleBase
 
             await db.SaveChangesAsync();
         }
-      
+
         return embed.Build();
     }
 
@@ -169,10 +170,17 @@ public class MareModule : InteractionModuleBase
         {
             using HttpClient c = new HttpClient();
             c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
-            using var data = await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>(nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"),
-                    new ClientMessage(messageType, message, uid ?? string.Empty),
-                    new JsonSerializerOptions() { IncludeFields = true })
-                .ConfigureAwait(false);
+            // var data = await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>
+            //     (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
+            //     .ConfigureAwait(false);
+            var clientMessage = new ClientMessage(messageType, message, uid ?? string.Empty);
+            var mainServerAddress = _mareServicesConfiguration.GetValue<Uri>(nameof(ServicesConfiguration.MainServerAddress));
+            var requestUri = new Uri(mainServerAddress, "/msgc/sendMessage");
+            string jsonContent = JsonConvert.SerializeObject(clientMessage);
+            _logger.LogInformation(jsonContent);
+            using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            using var response = await c.PostAsync(requestUri, content).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
 
             var discordChannelForMessages = _mareServicesConfiguration.GetValueOrDefault<ulong?>(nameof(ServicesConfiguration.DiscordChannelForMessages), null);
             if (uid == null && discordChannelForMessages != null)
@@ -196,9 +204,8 @@ public class MareModule : InteractionModuleBase
                     await discordChannel.SendMessageAsync(embed: eb.Build());
                 }
             }
-            data.EnsureSuccessStatusCode();
 
-            await RespondAsync("消息已发送" + c, ephemeral: true).ConfigureAwait(false);
+            await RespondAsync("消息已发送:" + jsonContent, ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
