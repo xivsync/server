@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using System.Text.Json;
+using Discord;
 using Discord.Interactions;
 using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
@@ -168,8 +169,9 @@ public class MareModule : InteractionModuleBase
         {
             using HttpClient c = new HttpClient();
             c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
-            var data = await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>
-                (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
+            using var data = await c.PostAsJsonAsync(new Uri(_mareServicesConfiguration.GetValue<Uri>(nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"),
+                    new ClientMessage(messageType, message, uid ?? string.Empty),
+                    new JsonSerializerOptions() { IncludeFields = true })
                 .ConfigureAwait(false);
 
             var discordChannelForMessages = _mareServicesConfiguration.GetValueOrDefault<ulong?>(nameof(ServicesConfiguration.DiscordChannelForMessages), null);
@@ -196,7 +198,7 @@ public class MareModule : InteractionModuleBase
             }
             data.EnsureSuccessStatusCode();
 
-            await RespondAsync("消息已发送", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync("消息已发送" + c, ephemeral: true).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
