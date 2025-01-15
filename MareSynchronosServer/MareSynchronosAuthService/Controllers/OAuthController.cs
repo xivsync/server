@@ -291,6 +291,7 @@ public class OAuthController : AuthControllerBase
             string primaryUid = HttpContext.User.Claims.Single(c => string.Equals(c.Type, MareClaimTypes.Uid, StringComparison.Ordinal))!.Value;
             if (string.IsNullOrEmpty(requestedUid)) return BadRequest("无 UID");
             if (string.IsNullOrEmpty(charaIdent)) return BadRequest("无 CharaIdent");
+            if (!string.IsNullOrEmpty(machineId)) Logger.LogInformation(machineId);
 
             var ip = HttpAccessor.GetIpAddress();
 
