@@ -24,7 +24,6 @@ internal class DiscordBot : IHostedService
     private readonly ILogger<DiscordBot> _logger;
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
     private readonly ServerTokenGenerator _serverTokenGenerator;
-    private readonly IRedisDatabase _redis;
 
     private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
@@ -33,7 +32,7 @@ internal class DiscordBot : IHostedService
 
     public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<ServicesConfiguration> configuration,
         IDbContextFactory<MareDbContext> dbContextFactory,
-        ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer, ServerTokenGenerator serverTokenGenerator, IRedisDatabase redis)
+        ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer, ServerTokenGenerator serverTokenGenerator)
     {
         _botServices = botServices;
         _services = services;
@@ -47,7 +46,6 @@ internal class DiscordBot : IHostedService
             GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.GuildMembers
         });
         _serverTokenGenerator = serverTokenGenerator;
-        _redis = redis;
 
         _discordClient.Log += Log;
     }
