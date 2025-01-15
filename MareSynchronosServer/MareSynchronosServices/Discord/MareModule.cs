@@ -385,7 +385,7 @@ public class MareModule : InteractionModuleBase
         var user = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
         if (user.MarkForBan)
         {
-            await RespondAsync("错误，用具已被封禁", ephemeral:true).ConfigureAwait(false);
+            await RespondAsync("错误，用户已被封禁", ephemeral:true).ConfigureAwait(false);
             return;
         }
         user.MarkForBan = true;

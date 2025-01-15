@@ -41,12 +41,18 @@ public abstract class AuthControllerBase : Controller
         Configuration = configuration;
     }
 
-    protected async Task<IActionResult> GenericAuthResponse(MareDbContext dbContext, string charaIdent, SecretKeyAuthReply authResult)
+    protected async Task<IActionResult> GenericAuthResponse(MareDbContext dbContext, string charaIdent, SecretKeyAuthReply authResult, string? machineId = null)
     {
         if (await IsIdentBanned(dbContext, charaIdent))
         {
             Logger.LogWarning("Authenticate:IDENTBAN:{id}:{ident}", authResult.Uid, charaIdent);
             return Unauthorized("你的FF账号被禁止使用本服务.");
+        }
+
+        if (machineId is not null && await IsIdentBanned(dbContext, machineId))
+        {
+            Logger.LogWarning("Authenticate:MachineBAN:{id}:{ident}", authResult.Uid, machineId);
+            return Unauthorized("你被禁止使用本服务.");
         }
 
         if (!authResult.Success && !authResult.TempBan)
@@ -62,10 +68,11 @@ public abstract class AuthControllerBase : Controller
 
         if (authResult.Permaban || authResult.MarkedForBan)
         {
-            if (authResult.MarkedForBan)
+            await EnsureBan(authResult.Uid!, authResult.PrimaryUid, charaIdent);
+
+            if (!string.IsNullOrEmpty(machineId))
             {
-                Logger.LogWarning("Authenticate:MARKBAN:{id}:{primaryid}:{ident}", authResult.Uid, authResult.PrimaryUid, charaIdent);
-                await EnsureBan(authResult.Uid!, authResult.PrimaryUid, charaIdent);
+                await EnsureBan(authResult.Uid!, authResult.PrimaryUid, machineId, true);
             }
 
             Logger.LogWarning("Authenticate:UIDBAN:{id}:{ident}", authResult.Uid, charaIdent);
@@ -112,16 +119,28 @@ public abstract class AuthControllerBase : Controller
         return Content(token.RawData);
     }
 
-    protected async Task EnsureBan(string uid, string? primaryUid, string charaIdent)
+    protected async Task EnsureBan(string uid, string? primaryUid, string charaIdent, bool isMid = false)
     {
         using var dbContext = await MareDbContextFactory.CreateDbContextAsync();
         if (!dbContext.BannedUsers.Any(c => c.CharacterIdentification == charaIdent))
         {
-            dbContext.BannedUsers.Add(new Banned()
+            if (!isMid)
             {
-                CharacterIdentification = charaIdent,
-                Reason = "自动封禁 (" + uid + ")",
-            });
+                dbContext.BannedUsers.Add(new Banned()
+                {
+                    CharacterIdentification = charaIdent,
+                    Reason = "自动封禁 (" + uid + ")",
+                });
+            }
+            else
+            {
+                dbContext.BannedUsers.Add(new Banned()
+                {
+                    CharacterIdentification = charaIdent,
+                    Reason = "MID封禁 (" + uid + ")",
+                });
+            }
+
         }
 
         var uidToLookFor = primaryUid ?? uid;

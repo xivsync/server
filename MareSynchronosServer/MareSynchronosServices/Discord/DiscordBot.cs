@@ -11,6 +11,7 @@ using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace MareSynchronosServices.Discord;
 
@@ -23,6 +24,7 @@ internal class DiscordBot : IHostedService
     private readonly ILogger<DiscordBot> _logger;
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
     private readonly ServerTokenGenerator _serverTokenGenerator;
+    private readonly IRedisDatabase _redis;
 
     private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
@@ -31,7 +33,7 @@ internal class DiscordBot : IHostedService
 
     public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<ServicesConfiguration> configuration,
         IDbContextFactory<MareDbContext> dbContextFactory,
-        ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer, ServerTokenGenerator serverTokenGenerator)
+        ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer, ServerTokenGenerator serverTokenGenerator, IRedisDatabase redis)
     {
         _botServices = botServices;
         _services = services;
@@ -45,6 +47,7 @@ internal class DiscordBot : IHostedService
             GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.GuildMembers
         });
         _serverTokenGenerator = serverTokenGenerator;
+        _redis = redis;
 
         _discordClient.Log += Log;
     }
@@ -158,15 +161,8 @@ internal class DiscordBot : IHostedService
                 profile.FlaggedForReport = false;
                 var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
                 reportingUser.MarkForBan = true;
-                var regReporting = await dbContext.LodeStoneAuth.SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
-                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-                {
-                    DiscordIdOrLodestoneAuth = regReporting.HashedLodestoneId
-                });
-                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-                {
-                    DiscordIdOrLodestoneAuth = regReporting.DiscordId.ToString()
-                });
+                var regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
+                BanAuth(dbContext, regReporting);
                 await SendMessageToClients("一个针对你的举报已被撤销.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
                 //         MessageSeverity.Warning, "一个针对你的举报已被撤销.")
@@ -195,15 +191,8 @@ internal class DiscordBot : IHostedService
                 profile.Base64ProfileImage = null;
                 profile.UserDescription = null;
                 profile.ProfileDisabled = true;
-                var reg = await dbContext.LodeStoneAuth.SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
-                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-                {
-                    DiscordIdOrLodestoneAuth = reg.HashedLodestoneId
-                });
-                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-                {
-                    DiscordIdOrLodestoneAuth = reg.DiscordId.ToString()
-                });
+                var reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
+                BanAuth(dbContext, reg);
                 await SendMessageToClients("因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
                 //     MessageSeverity.Warning, "因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
@@ -217,28 +206,14 @@ internal class DiscordBot : IHostedService
                 profile.Base64ProfileImage = null;
                 profile.UserDescription = null;
                 profile.ProfileDisabled = true;
-                reg = await dbContext.LodeStoneAuth.SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
-                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-                {
-                    DiscordIdOrLodestoneAuth = reg.HashedLodestoneId
-                });
-                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-                {
-                    DiscordIdOrLodestoneAuth = reg.DiscordId.ToString()
-                });
+                reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
+                BanAuth(dbContext, reg);
 
                 profile.FlaggedForReport = false;
                 reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
                 reportingUser.MarkForBan = true;
-                regReporting = await dbContext.LodeStoneAuth.SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
-                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-                {
-                    DiscordIdOrLodestoneAuth = regReporting.HashedLodestoneId
-                });
-                dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-                {
-                    DiscordIdOrLodestoneAuth = regReporting.DiscordId.ToString()
-                });
+                regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
+                BanAuth(dbContext, regReporting);
                 break;
         }
 
@@ -253,6 +228,18 @@ internal class DiscordBot : IHostedService
             msg.Components = null;
             msg.Embed = new Optional<Embed>(builder.Build());
         }).ConfigureAwait(false);
+    }
+
+    private void BanAuth(MareDbContext dbContext, LodeStoneAuth lodeStoneAuth)
+    {
+        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+        {
+            DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
+        });
+        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+        {
+            DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
+        });
     }
 
     private async Task DiscordClient_Ready()

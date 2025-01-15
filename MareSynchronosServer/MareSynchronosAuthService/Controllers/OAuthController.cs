@@ -277,14 +277,14 @@ public class OAuthController : AuthControllerBase
 
     [Authorize(Policy = "OAuthToken")]
     [HttpPost(MareAuth.OAuth_CreateOAuth)]
-    public async Task<IActionResult> CreateTokenWithOAuth(string uid, string charaIdent)
+    public async Task<IActionResult> CreateTokenWithOAuth(string uid, string charaIdent, string? machineId = null)
     {
         using var dbContext = await MareDbContextFactory.CreateDbContextAsync();
 
-        return await AuthenticateOAuthInternal(dbContext, uid, charaIdent);
+        return await AuthenticateOAuthInternal(dbContext, uid, charaIdent, machineId);
     }
 
-    private async Task<IActionResult> AuthenticateOAuthInternal(MareDbContext dbContext, string requestedUid, string charaIdent)
+    private async Task<IActionResult> AuthenticateOAuthInternal(MareDbContext dbContext, string requestedUid, string charaIdent, string? machineId = null)
     {
         try
         {
@@ -296,7 +296,7 @@ public class OAuthController : AuthControllerBase
 
             var authResult = await SecretKeyAuthenticatorService.AuthorizeOauthAsync(ip, primaryUid, requestedUid);
 
-            return await GenericAuthResponse(dbContext, charaIdent, authResult);
+            return await GenericAuthResponse(dbContext, charaIdent, authResult, machineId);
         }
         catch (Exception ex)
         {
