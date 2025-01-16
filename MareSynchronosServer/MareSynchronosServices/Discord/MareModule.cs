@@ -408,18 +408,27 @@ public class MareModule : InteractionModuleBase
     [RequireUserPermission(GuildPermission.Administrator)]
     public async Task CreateThread()
     {
-        using var scope = _services.CreateScope();
-        using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
-        if (Context.Channel is ITextChannel textChannel)
+        try
         {
-            var msg = await textChannel.SendMessageAsync("测试").ConfigureAwait(false);
-            var thread = await textChannel.CreateThreadAsync(
-                type: ThreadType.PrivateThread,
-                name: $"测试Thread",
-                autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
-            await thread.SendMessageAsync($"测试asd",
-                messageReference: new MessageReference(msg.Id,failIfNotExists: false)).ConfigureAwait(false);
-            await RespondAsync("OK", ephemeral: true).ConfigureAwait(false);
+            using var scope = _services.CreateScope();
+            using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
+            if (Context.Channel is ITextChannel textChannel)
+            {
+                var msg = await textChannel.SendMessageAsync("测试").ConfigureAwait(false);
+                var thread = await textChannel.CreateThreadAsync(
+                    type: ThreadType.PrivateThread,
+                    name: $"测试Thread",
+                    autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
+                await thread.SendMessageAsync($"测试asd",
+                    messageReference: new MessageReference(msg.Id)).ConfigureAwait(false);
+                await RespondAsync("OK", ephemeral: true).ConfigureAwait(false);
+            }
         }
+        catch (Exception e)
+        {
+            await Context.Channel.SendMessageAsync(e.ToString()).ConfigureAwait(false);
+            await RespondAsync(e.ToString(), ephemeral: true).ConfigureAwait(false);
+        }
+
     }
 }
