@@ -33,7 +33,8 @@ public class MareModule : InteractionModuleBase
     [SlashCommand("userinfo", "显示您的用户信息")]
     public async Task UserInfo([Summary("secondary_uid", "（可选）您的辅助UID")] string? secondaryUid = null,
         [Summary("discord_user", "仅限管理员：要检查的 Discord 用户")] IUser? discordUser = null,
-        [Summary("uid", "仅限管理员：要检查的 UID")] string? uid = null)
+        [Summary("uid", "仅限管理员：要检查的 UID")] string? uid = null,
+        [Summary("lodestone", "仅限管理员：要检查的LodeStone账户")] string? lodestone = null)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
             Context.Interaction.User.Id, nameof(UserInfo));
@@ -42,7 +43,7 @@ public class MareModule : InteractionModuleBase
         {
             EmbedBuilder eb = new();
 
-            eb = await HandleUserInfo(eb, Context.User.Id, secondaryUid, discordUser?.Id ?? null, uid);
+            eb = await HandleUserInfo(eb, Context.User.Id, secondaryUid, discordUser?.Id ?? null, uid, lodestone);
 
             await RespondAsync(embeds: new[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
         }
@@ -249,7 +250,7 @@ public class MareModule : InteractionModuleBase
         return embed.Build();
     }
 
-    private async Task<EmbedBuilder> HandleUserInfo(EmbedBuilder eb, ulong id, string? secondaryUserUid = null, ulong? optionalUser = null, string? uid = null)
+    private async Task<EmbedBuilder> HandleUserInfo(EmbedBuilder eb, ulong id, string? secondaryUserUid = null, ulong? optionalUser = null, string? uid = null, string? lodestoneId = null)
     {
         bool showForSecondaryUser = secondaryUserUid != null;
         using var scope = _services.CreateScope();
@@ -268,13 +269,13 @@ public class MareModule : InteractionModuleBase
 
         bool isAdminCall = primaryUser.User.IsModerator || primaryUser.User.IsAdmin;
 
-        if ((optionalUser != null || uid != null) && !isAdminCall)
+        if ((optionalUser != null || uid != null || lodestoneId != null) && !isAdminCall)
         {
             eb.WithTitle("权限不足");
             eb.WithDescription("只有管理员可以查看其它用户的信息");
             return eb;
         }
-        else if ((optionalUser != null || uid != null) && isAdminCall)
+        else if ((optionalUser != null || uid != null || lodestoneId != null) && isAdminCall)
         {
             LodeStoneAuth userInDb = null;
             if (optionalUser != null)
@@ -286,11 +287,15 @@ public class MareModule : InteractionModuleBase
                 var primary = (await db.Auth.SingleOrDefaultAsync(u => u.UserUID == uid && u.PrimaryUserUID != null))?.PrimaryUserUID ?? uid;//确认是否为子账号，如果是，查找主账号DC信息
                 userInDb = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == primary || u.User.Alias == primary).ConfigureAwait(false);
             }
+            else if (lodestoneId != null)
+            {
+                userInDb = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.HashedLodestoneId == StringUtils.Sha256String(lodestoneId)).ConfigureAwait(false);
+            }
 
             if (userInDb == null)
             {
                 eb.WithTitle("账号不存在");
-                eb.WithDescription("该Discord账号没有关联Mare账号");
+                eb.WithDescription("未找到要查询的账号");
                 return eb;
             }
 
