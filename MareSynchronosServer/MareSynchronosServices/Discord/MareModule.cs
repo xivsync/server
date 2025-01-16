@@ -403,4 +403,22 @@ public class MareModule : InteractionModuleBase
         _logger.LogInformation($"Admin {Context.Interaction.User.Username} banned {uid}");
 
     }
+
+    [SlashCommand("thread", "子区")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task CreateThread()
+    {
+        using var scope = _services.CreateScope();
+        using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
+        if (Context.Channel is ITextChannel textChannel)
+        {
+            var msg = await textChannel.SendMessageAsync("测试").ConfigureAwait(false);
+            var thread = await textChannel.CreateThreadAsync(
+                type: ThreadType.PrivateThread,
+                name: $"测试",
+                message: msg,
+                autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
+            await RespondAsync($"创建了子区 {thread.Type}").ConfigureAwait(false);
+        }
+    }
 }
