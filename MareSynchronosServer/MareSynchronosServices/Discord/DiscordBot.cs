@@ -464,9 +464,10 @@ internal class DiscordBot : IHostedService
                         var thread = await restChannel.CreateThreadAsync(
                             type: ThreadType.PrivateThread,
                             name: $"举报: {reportingUser.UID} -> {reportedUser.UID}",
-                            message: msg,
+                            invitable: true,
                             autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
-                        await thread.SendMessageAsync($"请双方 <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> 在72h内提供相关资料供 <@&1301329024680857692> 进行讨论.").ConfigureAwait(false);
+                        await thread.SendMessageAsync($"请双方 <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> 在72h内提供相关资料供 <@&1301329024680857692> 进行讨论.",
+                            messageReference: new MessageReference(msg.Id)).ConfigureAwait(false);
 
                         dbContext.Remove(report);
                     }

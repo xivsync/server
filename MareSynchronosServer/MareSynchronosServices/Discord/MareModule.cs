@@ -416,9 +416,9 @@ public class MareModule : InteractionModuleBase
             var thread = await textChannel.CreateThreadAsync(
                 type: ThreadType.PrivateThread,
                 name: $"测试",
-                message: msg,
                 autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
-            await RespondAsync($"创建了子区 {thread.Type}").ConfigureAwait(false);
+            await thread.SendMessageAsync($".",
+                messageReference: new MessageReference(msg.Id)).ConfigureAwait(false);
         }
     }
 }
