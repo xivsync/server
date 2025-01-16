@@ -403,32 +403,4 @@ public class MareModule : InteractionModuleBase
         _logger.LogInformation($"Admin {Context.Interaction.User.Username} banned {uid}");
 
     }
-
-    [SlashCommand("thread", "子区")]
-    [RequireUserPermission(GuildPermission.Administrator)]
-    public async Task CreateThread()
-    {
-        try
-        {
-            using var scope = _services.CreateScope();
-            using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
-            if (Context.Channel is ITextChannel textChannel)
-            {
-                var msg = await textChannel.SendMessageAsync("测试").ConfigureAwait(false);
-                var thread = await textChannel.CreateThreadAsync(
-                    type: ThreadType.PrivateThread,
-                    name: $"测试Thread",
-                    invitable: true,
-                    autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
-                await thread.SendMessageAsync($"测试asd",
-                    messageReference: new MessageReference(msg.Id,Context.Channel.Id, Context.Guild.Id)).ConfigureAwait(false);
-                await RespondAsync("OK", ephemeral: true).ConfigureAwait(false);
-            }
-        }
-        catch (Exception e)
-        {
-            await RespondAsync(e.ToString(), ephemeral: true).ConfigureAwait(false);
-        }
-
-    }
 }

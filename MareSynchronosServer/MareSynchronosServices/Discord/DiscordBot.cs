@@ -467,8 +467,7 @@ internal class DiscordBot : IHostedService
                             invitable: true,
                             autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
 
-                        await thread.SendMessageAsync($"请双方 <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> 在72h内提供相关资料供 <@&1301329024680857692> 进行讨论.",
-                        messageReference: new MessageReference(msg.Id,failIfNotExists: false)).ConfigureAwait(false);
+                        await thread.SendMessageAsync($"请双方 <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> 在72h内提供相关资料供 <@&1301329024680857692> 进行讨论.").ConfigureAwait(false);
 
                         dbContext.Remove(report);
                     }
