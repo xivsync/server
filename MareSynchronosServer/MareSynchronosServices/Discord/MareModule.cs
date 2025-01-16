@@ -418,15 +418,15 @@ public class MareModule : InteractionModuleBase
                 var thread = await textChannel.CreateThreadAsync(
                     type: ThreadType.PrivateThread,
                     name: $"测试Thread",
+                    invitable: true,
                     autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
                 await thread.SendMessageAsync($"测试asd",
-                    messageReference: new MessageReference(msg.Id)).ConfigureAwait(false);
+                    messageReference: new MessageReference(msg.Id,Context.Channel.Id, Context.Guild.Id)).ConfigureAwait(false);
                 await RespondAsync("OK", ephemeral: true).ConfigureAwait(false);
             }
         }
         catch (Exception e)
         {
-            await Context.Channel.SendMessageAsync(e.ToString()).ConfigureAwait(false);
             await RespondAsync(e.ToString(), ephemeral: true).ConfigureAwait(false);
         }
 
