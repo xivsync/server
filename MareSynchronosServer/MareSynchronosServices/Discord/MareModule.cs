@@ -375,7 +375,8 @@ public class MareModule : InteractionModuleBase
 
     [SlashCommand("banuser", "封禁用户")]
     [RequireUserPermission(GuildPermission.Administrator)]
-    public async Task BanUser([Summary("uid", "用户uid")] string uid)
+    public async Task BanUser([Summary("uid", "用户uid")] string uid,
+    [Summary("reason", "封禁原因")] string? reason = null)
     {
 
         using var scope = _services.CreateScope();
@@ -404,7 +405,9 @@ public class MareModule : InteractionModuleBase
             DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
         });
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
-        await RespondAsync($"已将用户 {uid} 添加到封禁列表", ephemeral:false).ConfigureAwait(false);
+        var text = $"已将用户 `{uid}` 添加到封禁列表";
+        if (!string.IsNullOrEmpty(reason)) text += $", 封禁原因: `{reason}`";
+        await RespondAsync(text, ephemeral:false).ConfigureAwait(false);
         _logger.LogInformation($"Admin {Context.Interaction.User.Username} banned {uid}");
 
     }
