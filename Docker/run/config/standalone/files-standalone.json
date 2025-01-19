@@ -7,8 +7,8 @@
             "Default": "Warning",
             "Microsoft": "Warning",
             "Microsoft.Hosting.Lifetime": "Information",
-            "MareSynchronosStaticFilesServer": "Debug",
-            "MareSynchronosShared": "Debug",
+            "MareSynchronosStaticFilesServer": "Information",
+            "MareSynchronosShared": "Information",
             "System.IO": "Information",
         },
         "File": {

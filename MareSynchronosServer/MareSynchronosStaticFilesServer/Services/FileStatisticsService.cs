@@ -80,7 +80,7 @@ public class FileStatisticsService : IHostedService
             var now = DateTime.UtcNow;
             TimeOnly currentTime = new(now.Hour, now.Minute, now.Second);
             TimeOnly futureTime = new(0, 0, 0);
-            var span = futureTime - currentTime;
+            var span = futureTime.AddHours(24) - currentTime;
 
             await Task.Delay(span, _resetCancellationTokenSource.Token).ConfigureAwait(false);
         }
