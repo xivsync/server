@@ -680,7 +680,7 @@ internal class DiscordBot : IHostedService
             var endPoint = _connectionMultiplexer.GetEndPoints().First();
             var onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "UID:*").CountAsync().ConfigureAwait(false);
 
-            _logger.LogInformation("Users online: " + onlineUsers);
+            _logger.LogDebug("Users online: " + onlineUsers);
             await _discordClient.SetActivityAsync(new Game(onlineUsers + " MareCN用户在线")).ConfigureAwait(false);
             await Task.Delay(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
         }

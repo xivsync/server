@@ -229,9 +229,17 @@ public class OAuthController : AuthControllerBase
         Logger.LogDebug("Starting to wait for GetDiscordOAuthToken for {session}", sessionId);
         using CancellationTokenSource cts = new();
         cts.CancelAfter(TimeSpan.FromSeconds(55));
-        while (!_cookieOAuthResponse.ContainsKey(sessionId) && !cts.Token.IsCancellationRequested)
+        try
         {
-            await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            while (!_cookieOAuthResponse.ContainsKey(sessionId) && !cts.Token.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cts.Token);
+            }
+        }
+        catch
+        {
+            Logger.LogDebug("Timeout elapsed for {session}", sessionId);
+            return BadRequest("等待 Discord OAuth2 响应超时");
         }
         if (cts.IsCancellationRequested)
         {
