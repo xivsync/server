@@ -104,6 +104,9 @@ public class Startup
             services.AddSingleton<CharaDataCleanupService>();
             services.AddHostedService(provider => provider.GetService<CharaDataCleanupService>());
         }
+
+        services.AddSingleton<GPoseLobbyDistributionService>();
+        services.AddHostedService(provider => provider.GetService<GPoseLobbyDistributionService>());
     }
 
     private static void ConfigureSignalR(IServiceCollection services, IConfigurationSection mareConfig)
@@ -295,6 +298,8 @@ public class Startup
             MetricsAPI.GaugeAuthenticationCacheEntries,
             MetricsAPI.GaugeUserPairCacheEntries,
             MetricsAPI.GaugeUserPairCacheUsers,
+            MetricsAPI.GaugeGposeLobbies,
+            MetricsAPI.GaugeGposeLobbyUsers
         }));
     }
 

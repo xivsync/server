@@ -34,6 +34,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
     private readonly IRedisDatabase _redis;
     private readonly OnlineSyncedPairCacheService _onlineSyncedPairCacheService;
     private readonly MareCensus _mareCensus;
+    private readonly GPoseLobbyDistributionService _gPoseLobbyDistributionService;
     private readonly Uri _fileServerAddress;
     private readonly Version _expectedClientVersion;
     private readonly Lazy<MareDbContext> _dbContextLazy;
@@ -44,7 +45,8 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
     public MareHub(MareMetrics mareMetrics,
         IDbContextFactory<MareDbContext> mareDbContextFactory, ILogger<MareHub> logger, SystemInfoService systemInfoService,
         IConfigurationService<ServerConfiguration> configuration, IHttpContextAccessor contextAccessor,
-        IRedisDatabase redisDb, OnlineSyncedPairCacheService onlineSyncedPairCacheService, MareCensus mareCensus)
+        IRedisDatabase redisDb, OnlineSyncedPairCacheService onlineSyncedPairCacheService, MareCensus mareCensus,
+        GPoseLobbyDistributionService gPoseLobbyDistributionService)
     {
         _mareMetrics = mareMetrics;
         _systemInfoService = systemInfoService;
@@ -60,6 +62,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
         _redis = redisDb;
         _onlineSyncedPairCacheService = onlineSyncedPairCacheService;
         _mareCensus = mareCensus;
+        _gPoseLobbyDistributionService = gPoseLobbyDistributionService;
         _logger = new MareHubLogger(this, logger);
         _dbContextLazy = new Lazy<MareDbContext>(() => mareDbContextFactory.CreateDbContext());
     }
@@ -176,6 +179,8 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
 
             try
             {
+                await GposeLobbyLeave().ConfigureAwait(false);
+
                 await _onlineSyncedPairCacheService.DisposePlayer(UserUID).ConfigureAwait(false);
 
                 _logger.LogCallInfo(MareHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
