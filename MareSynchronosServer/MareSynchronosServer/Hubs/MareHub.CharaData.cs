@@ -45,6 +45,7 @@ public partial class MareHub
             AccessType = CharaDataAccess.Individuals,
             ShareType = CharaDataShare.Private,
             CustomizeData = string.Empty,
+            MoodlesData = string.Empty,
             GlamourerData = string.Empty,
             ExpiryDate = DateTime.MaxValue,
             Description = string.Empty,
@@ -209,6 +210,12 @@ public partial class MareHub
         if (updateDto.CustomizeData != null)
         {
             charaData.CustomizeData = updateDto.CustomizeData;
+            anyChanges = true;
+        }
+
+        if (updateDto.MoodlesData != null)
+        {
+            charaData.MoodlesData = updateDto.MoodlesData;
             anyChanges = true;
         }
 
@@ -433,6 +440,7 @@ public partial class MareHub
             GlamourerData = charaData.GlamourerData,
             FileSwaps = charaData.FileSwaps.Select(k => new GamePathEntry(k.FilePath, k.GamePath)).ToList(),
             ManipulationData = charaData.ManipulationData,
+            MoodlesData = charaData.MoodlesData,
         };
     }
 
@@ -445,6 +453,7 @@ public partial class MareHub
             AllowedUsers = [.. charaData.AllowedIndividiuals.Where(k => !string.IsNullOrEmpty(k.AllowedUserUID)).Select(u => new UserData(u.AllowedUser.UID, u.AllowedUser.Alias))],
             AllowedGroups = [.. charaData.AllowedIndividiuals.Where(k => !string.IsNullOrEmpty(k.AllowedGroupGID)).Select(k => new GroupData(k.AllowedGroup.GID, k.AllowedGroup.Alias))],
             CustomizeData = charaData.CustomizeData,
+            MoodlesData = charaData.MoodlesData,
             Description = charaData.Description,
             ExpiryDate = charaData.ExpiryDate ?? DateTime.MaxValue,
             OriginalFiles = charaData.OriginalFiles.Select(k => new GamePathEntry(k.Hash, k.GamePath)).ToList(),
