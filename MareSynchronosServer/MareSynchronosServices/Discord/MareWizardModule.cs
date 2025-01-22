@@ -59,17 +59,33 @@ public partial class MareWizardModule : InteractionModuleBase
             _ => "错误",
         };
 
+        Emoji nthButtonEmoji = correctButton switch
+        {
+            1 => new Emoji("⬅️"),
+            2 => new Emoji("🤖"),
+            3 => new Emoji("‼️"),
+            4 => new Emoji("✉️"),
+            _ => "unknown",
+        };
+
         eb.WithTitle("Mare Bot Services 验证");
         eb.WithDescription("机器人启动后您的首次使用需要先进行验证." + Environment.NewLine + Environment.NewLine
-            + "本机器人 __需要__ embeds 功能来正常运行. 如要继续,请保证你的 Embed 功能已启用." + Environment.NewLine + Environment.NewLine
-            + $"请点击下方 __第 **{nthButtonText}** ({correctButton}) 个按钮.__");
+            + "本机器人 __需要__ embeds 功能来正常运行. 如要继续,请保证你的 Embed 功能已启用." + Environment.NewLine
+            + $"## 请点击下方 __第 **{nthButtonText}** 个按钮 ({nthButtonEmoji}).__");
         eb.WithColor(Color.LightOrange);
 
+        int incorrectButtonHighlight = 1;
+        do
+        {
+            incorrectButtonHighlight = rnd.Next(4) + 1;
+        }
+        while (incorrectButtonHighlight == correctButton);
+
         ComponentBuilder cb = new();
-        cb.WithButton("使用", correctButton == 1 ? "wizard-home:false" : "wizard-captcha-fail:1", emote: new Emoji("⬅️"));
-        cb.WithButton("本机器人", correctButton == 2 ? "wizard-home:false" : "wizard-captcha-fail:2", emote: new Emoji("🤖"));
-        cb.WithButton("需要启用", correctButton == 3 ? "wizard-home:false" : "wizard-captcha-fail:3", emote: new Emoji("‼️"));
-        cb.WithButton("Embeds", correctButton == 4 ? "wizard-home:false" : "wizard-captcha-fail:4", emote: new Emoji("✉️"));
+        cb.WithButton("使用", correctButton == 1 ? "wizard-home:false" : "wizard-captcha-fail:1", emote: new Emoji("⬅️"), style: incorrectButtonHighlight == 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("本机器人", correctButton == 2 ? "wizard-home:false" : "wizard-captcha-fail:2", emote: new Emoji("🤖"), style: incorrectButtonHighlight == 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("需要启用", correctButton == 3 ? "wizard-home:false" : "wizard-captcha-fail:3", emote: new Emoji("‼️"), style: incorrectButtonHighlight == 3 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("Embeds", correctButton == 4 ? "wizard-home:false" : "wizard-captcha-fail:4", emote: new Emoji("✉️"), style: incorrectButtonHighlight == 4 ? ButtonStyle.Primary : ButtonStyle.Secondary);
 
         await InitOrUpdateInteraction(init, eb, cb).ConfigureAwait(false);
     }
