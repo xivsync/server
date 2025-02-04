@@ -1,4 +1,6 @@
-﻿using Discord;
+﻿using System.Globalization;
+using System.Text;
+using Discord;
 using Discord.Interactions;
 using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
@@ -410,5 +412,44 @@ public class MareModule : InteractionModuleBase
         await RespondAsync(text, ephemeral:false).ConfigureAwait(false);
         _logger.LogInformation($"Admin {Context.Interaction.User.Username} banned {uid}");
 
+    }
+
+    [SlashCommand("forbiddenfiles", "禁用文件")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task ForbiddenFiles(Addremove arg, string hash, string? reason = null)
+    {
+        using var scope = _services.CreateScope();
+        using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
+
+        var data = dbContext.ForbiddenUploadEntries.FirstOrDefault(x => x.Hash == hash);
+        if (arg == Addremove.Add)
+        {
+            if (data != null)
+            {
+                await ReplyAsync($"Hash为: {hash} 的条目已存在" + Environment.NewLine + "禁止原因: " + data.ForbiddenBy + Environment.NewLine + "时间:" + Encoding.UTF8.GetString(data.Timestamp)).ConfigureAwait(false);
+                return;
+            }
+            data = new ForbiddenUploadEntry(){Hash = hash, ForbiddenBy = reason, Timestamp = Encoding.UTF8.GetBytes(DateTime.Now.ToString(CultureInfo.CurrentCulture))};
+            dbContext.ForbiddenUploadEntries.Add(data);
+            await ReplyAsync($"已将条目: {hash} 添加到数据库").ConfigureAwait(false);
+            await dbContext.SaveChangesAsync().ConfigureAwait(false);
+        }
+        else
+        {
+            if (data == null)
+            {
+                await ReplyAsync($"Hash为: {hash} 的条目不存在").ConfigureAwait(false);
+                return;
+            }
+            dbContext.ForbiddenUploadEntries.Remove(data);
+            await ReplyAsync($"已将条目: {hash} 从数据库移除").ConfigureAwait(false);
+            await dbContext.SaveChangesAsync().ConfigureAwait(false);
+        }
+    }
+
+    public enum Addremove
+    {
+        Add,
+        Remove
     }
 }

@@ -353,3 +353,4 @@ MigrationBackup/
 Docker/run/data/
 Docker/run/compose/.env
 /MareSynchronosServer/.idea
+/.idea
