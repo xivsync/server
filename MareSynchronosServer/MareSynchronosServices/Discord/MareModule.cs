@@ -327,6 +327,7 @@ public class MareModule : InteractionModuleBase
         var groups = await db.Groups.Where(g => g.OwnerUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var groupsJoined = await db.GroupPairs.Where(g => g.GroupUserUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("UID:" + dbUser.UID).ConfigureAwait(false);
+        var online = string.IsNullOrEmpty(identity) ? string.Empty : dbUser.UID + Environment.NewLine;
 
         eb.WithTitle("用户信息");
         eb.WithDescription("这是 Discord 用户 <@" + userToCheckForDiscordId + "> 的信息" + Environment.NewLine);
@@ -345,11 +346,18 @@ public class MareModule : InteractionModuleBase
             if (secondaryUIDs.Any())
             {
                 eb.AddField("辅助UID:", string.Join(Environment.NewLine, secondaryUIDs));
+                foreach (var secondaryUiD in secondaryUIDs)
+                {
+                    if (await _connectionMultiplexer.GetDatabase().KeyExistsAsync("UID:" + secondaryUiD).ConfigureAwait(false))
+                    {
+                        online += secondaryUiD + Environment.NewLine;
+                    }
+                }
             }
         }
         eb.AddField("上一次在线(本地时间)", $"<t:{new DateTimeOffset(dbUser.LastLoggedIn.ToUniversalTime()).ToUnixTimeSeconds()}:f>");
-        eb.AddField("目前是否在线", !string.IsNullOrEmpty(identity));
-        eb.AddField("同步密钥哈希值", auth.HashedKey);
+        eb.AddField("在线UID", string.IsNullOrEmpty(online) ? "无" : online);
+        //eb.AddField("同步密钥哈希值", auth.HashedKey);
         eb.AddField("加入的同步贝数量", groupsJoined.Count);
         eb.AddField("拥有的同步贝数量", groups.Count);
         foreach (var group in groups)
@@ -364,10 +372,16 @@ public class MareModule : InteractionModuleBase
 
         if (isAdminCall && !string.IsNullOrEmpty(identity))
         {
-            eb.AddField("角色识别码", identity);
+            eb.AddField("在线角色ID", identity);
         }
         
-        if (primaryUser.User.IsAdmin && !string.IsNullOrEmpty(lodestoneUser.HashedLodestoneId))
+        if (isAdminCall && auth.PrimaryUserUID is not null)
+        {
+            eb.AddField("曾用角色ID数量", auth.PrimaryUserUID.Length);
+            eb.AddField("曾用角色ID", string.Join(Environment.NewLine, auth.PrimaryUserUID.Take(5)));
+        }
+        
+        if (isAdminCall && !string.IsNullOrEmpty(lodestoneUser.HashedLodestoneId))
         {
             eb.AddField("LodeStone识别码", lodestoneUser.HashedLodestoneId);
         }
