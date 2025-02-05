@@ -141,8 +141,8 @@ public partial class MareWizardModule : InteractionModuleBase
             if (isBanned)
             {
                 EmbedBuilder ebBanned = new();
-                ebBanned.WithTitle("You are not welcome here");
-                ebBanned.WithDescription("Your Discord account is banned");
+                ebBanned.WithTitle("你已被本服务器封禁");
+                ebBanned.WithDescription("该Discord账号已被封禁");
                 await RespondAsync(embed: ebBanned.Build(), ephemeral: true).ConfigureAwait(false);
                 _logger.LogInformation("Banned user interacted {method}:{userId}", nameof(StartWizard), Context.Interaction.User.Id);
                 return;

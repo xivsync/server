@@ -168,7 +168,23 @@ public abstract class AuthControllerBase : Controller
                 });
             }
         }
-
+        
+        //添加所有主UID下的CharaId
+        if (primaryUserAuth.CharaIds is not null)
+        {
+            foreach (var id in primaryUserAuth.CharaIds)
+            {
+                if (!dbContext.BannedUsers.Any(c => c.CharacterIdentification == charaIdent))
+                {
+                    dbContext.BannedUsers.Add(new Banned()
+                    {
+                        CharacterIdentification = charaIdent,
+                        Reason = "角色封禁 (" + uid + ")",
+                    });
+                }
+            }
+        }
+        
         await dbContext.SaveChangesAsync();
     }
 

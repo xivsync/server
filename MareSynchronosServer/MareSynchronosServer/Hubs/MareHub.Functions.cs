@@ -166,6 +166,23 @@ public partial class MareHub
     private async Task UpdateUserOnRedis()
     {
         await _redis.AddAsync("UID:" + UserUID, UserCharaIdent, TimeSpan.FromSeconds(60), StackExchange.Redis.When.Always, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
+        var authReply = await DbContext.Auth.AsNoTracking()
+            .SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+        var targetUid = authReply.PrimaryUserUID ?? UserUID;
+        var user = await DbContext.Auth.FirstOrDefaultAsync(u => u.UserUID == targetUid).ConfigureAwait(false);
+        if (user is not null)
+        {
+            if (user.CharaIds is null) user.CharaIds = new List<string>();
+            if (!user.CharaIds.Contains(UserCharaIdent, StringComparer.OrdinalIgnoreCase))
+            {
+                user.CharaIds.Add(UserCharaIdent);
+                await DbContext.SaveChangesAsync().ConfigureAwait(false);
+            }
+        }
+        else
+        {
+            _logger.LogCallWarning([UserUID, UserCharaIdent], nameof(UpdateUserOnRedis));
+        }
     }
 
     private async Task UserGroupLeave(GroupPair groupUserPair, string userIdent, Dictionary<string, UserInfo> allUserPairs, string? uid = null)

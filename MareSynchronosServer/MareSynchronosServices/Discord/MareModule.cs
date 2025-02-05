@@ -384,12 +384,6 @@ public class MareModule : InteractionModuleBase
         using var scope = _services.CreateScope();
         using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
 
-        if (!(await dbContext.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == Context.Interaction.User.Id))?.User?.IsAdmin ?? true)
-        {
-            await RespondAsync("权限不足", ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
         var user = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
         if (user.MarkForBan)
         {
