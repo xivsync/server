@@ -58,6 +58,10 @@ public class MareDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder mb)
     {
         mb.Entity<Auth>().ToTable("auth");
+        mb.Entity<Auth>()
+            .Property(e => e.CharaIds)
+            .HasConversion<ListToStringConverter>()
+            .Metadata.SetValueComparer(new ListValueComparer());
         mb.Entity<User>().ToTable("users");
         mb.Entity<FileCache>().ToTable("file_caches");
         mb.Entity<FileCache>().HasIndex(c => c.UploaderUID);
