@@ -375,10 +375,10 @@ public class MareModule : InteractionModuleBase
             eb.AddField("在线角色ID", identity);
         }
         
-        if (isAdminCall && auth.PrimaryUserUID is not null)
+        if (isAdminCall && auth.CharaIds is not null)
         {
-            eb.AddField("曾用角色ID数量", auth.PrimaryUserUID.Length);
-            eb.AddField("曾用角色ID", string.Join(Environment.NewLine, auth.PrimaryUserUID.Take(5)));
+            eb.AddField("曾用角色ID数量", auth.CharaIds.Count);
+            eb.AddField("曾用角色ID", string.Join(Environment.NewLine, auth.CharaIds.Take(5)));
         }
         
         if (isAdminCall && !string.IsNullOrEmpty(lodestoneUser.HashedLodestoneId))
