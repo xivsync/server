@@ -408,15 +408,18 @@ public class MareModule : InteractionModuleBase
             return;
         }
         user.MarkForBan = true;
-        var lodeStoneAuth = await dbContext.LodeStoneAuth.SingleAsync(u => u.User.UID == user.UserUID || u.User.UID == user.PrimaryUserUID).ConfigureAwait(false);
-        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+        var lodeStoneAuth = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == user.UserUID || u.User.UID == user.PrimaryUserUID).ConfigureAwait(false);
+        if (lodeStoneAuth != null)
         {
-            DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
-        });
-        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-        {
-            DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
-        });
+            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
+            });
+            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
+            });
+        }
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
         var text = $"已将用户 `{uid}` 添加到封禁列表";
         if (!string.IsNullOrEmpty(reason)) text += $", 封禁原因: `{reason}`";
