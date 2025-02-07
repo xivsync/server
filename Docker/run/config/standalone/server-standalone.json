@@ -9,7 +9,7 @@
             "Microsoft.Hosting.Lifetime": "Information",
             "Microsoft.EntityFramework": "Warning",
             "MareSynchronosServer": "Information",
-            "MareSynchronosShared": "Debug",
+            "MareSynchronosShared": "Information",
             "System.IO": "Information",
             "MareSynchronosServer.Services.SystemInfoService": "Warning"
         },
@@ -21,7 +21,7 @@
             "MaxFileSize": 104857600,
             "Files": [
                 {
-                    "Path": "<date:yyyy>/<date:MM>/<date:dd>/mare-<date:HH>-<counter:0000>.log"
+                    "Path": "<date:yyyy>/<date:MM>/mare-<date:MM>-<date:dd>-<date:HH>-<counter:0000>.log"
                 }
             ]
         }

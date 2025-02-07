@@ -4,12 +4,12 @@
     },
     "Logging": {
         "LogLevel": {
-            "Default": "Warning",
+            "Default": "Information",
             "Microsoft": "Warning",
             "Microsoft.Hosting.Lifetime": "Information",
             "MareSynchronosStaticFilesServer": "Information",
             "MareSynchronosShared": "Information",
-            "System.IO": "Information",
+            "System.IO": "Information"
         },
         "File": {
             "BasePath": "logs",
@@ -19,7 +19,7 @@
             "MaxFileSize": 104857600,
             "Files": [
                 {
-                    "Path": "<date:yyyy>/<date:MM>/<date:dd>/mare-<date:HH>-<counter:0000>.log"
+                    "Path": "<date:yyyy>/<date:MM>/mare-<date:MM>-<date:dd>-<date:HH>-<counter:0000>.log"
                 }
             ]
         }

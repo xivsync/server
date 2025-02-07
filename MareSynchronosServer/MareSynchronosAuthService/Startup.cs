@@ -85,7 +85,9 @@ public class Startup
         services.AddControllers().ConfigureApplicationPartManager(a =>
         {
             a.FeatureProviders.Remove(a.FeatureProviders.OfType<ControllerFeatureProvider>().First());
-            a.FeatureProviders.Add(new AllowedControllersFeatureProvider(typeof(JwtController), typeof(OAuthController)));
+            a.FeatureProviders.Add(new AllowedControllersFeatureProvider(
+                //typeof(JwtController), 
+                typeof(OAuthController)));
         });
     }
 
