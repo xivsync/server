@@ -297,6 +297,13 @@ public class OAuthController : AuthControllerBase
         try
         {
             string primaryUid = HttpContext.User.Claims.Single(c => string.Equals(c.Type, MareClaimTypes.Uid, StringComparison.Ordinal))!.Value;
+            
+            if (primaryUid != requestedUid &&
+                !await dbContext.Auth.AsNoTracking().AnyAsync(a => a.UserUID == requestedUid && a.PrimaryUserUID == primaryUid))
+            {
+                return BadRequest("UID不属于当前Discord账户, 请点击 '从服务器更新UID' 并重新分配");
+            }
+            
             if (string.IsNullOrEmpty(requestedUid)) return BadRequest("无 UID");
             if (string.IsNullOrEmpty(charaIdent)) return BadRequest("无 CharaIdent");
 
