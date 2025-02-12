@@ -245,14 +245,14 @@ public class MainFileCleanupService : IHostedService
     {
         int fileCounter = 0;
         List<string> removedFileHashes = new();
+        _logger.LogInformation($"Deleteing files before {lastAccessCutoffTime.ToLongDateString()}");
         foreach (var fileCache in allDbFiles.Where(f => f.Uploaded))
         {
             bool deleteCurrentFile = false;
             var file = FilePathUtil.GetFileInfoForHash(dir, fileCache.Hash);
-            _logger.LogWarning($"Deleteing files before {lastAccessCutoffTime.ToLongDateString()}");
             if (fileCache.UploaderUID == "JH762B7HDV")
             {
-                _logger.LogWarning($"{file.LastAccessTime.ToLongTimeString()}, {file.LastWriteTime.ToLongTimeString()}");
+                _logger.LogWarning($"GotFile: {file.LastAccessTime.ToLongTimeString()}, {file.LastWriteTime.ToLongTimeString()}");
             }
             if (file == null)
             {
