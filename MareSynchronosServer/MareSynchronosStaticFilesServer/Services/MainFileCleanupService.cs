@@ -252,7 +252,7 @@ public class MainFileCleanupService : IHostedService
             var file = FilePathUtil.GetFileInfoForHash(dir, fileCache.Hash);
             if (fileCache.UploaderUID == "JH762B7HDV")
             {
-                _logger.LogWarning($"GotFile: {file.LastAccessTime.ToLongTimeString()}, {file.LastWriteTime.ToLongTimeString()}");
+                _logger.LogWarning($"GotFile: {file.LastAccessTime.ToLongDateString()}, {file.LastWriteTime.ToLongDateString()} {file.LastAccessTime < lastAccessCutoffTime}");
             }
             if (file == null)
             {
