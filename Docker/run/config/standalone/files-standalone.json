@@ -4,7 +4,7 @@
     },
     "Logging": {
         "LogLevel": {
-            "Default": "Information",
+            "Default": "Warning",
             "Microsoft": "Warning",
             "Microsoft.Hosting.Lifetime": "Information",
             "MareSynchronosStaticFilesServer": "Information",
@@ -29,7 +29,7 @@
         "ShardName": "Files",
         "MetricsPort": 6250,
         "ForcedDeletionOfFilesAfterHours": -1,
-        "CacheSizeHardLimitInGiB": 400,
+        "CacheSizeHardLimitInGiB": 300,
         "UnusedFileRetentionPeriodInDays": 14,
         "CacheDirectory": "/marecache/",
         "RemoteCacheSourceUri": "",
