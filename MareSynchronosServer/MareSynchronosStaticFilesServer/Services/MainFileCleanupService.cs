@@ -244,16 +244,14 @@ public class MainFileCleanupService : IHostedService
         MareDbContext dbContext, DateTime lastAccessCutoffTime, DateTime forcedDeletionCutoffTime, List<FileCache> allDbFiles, CancellationToken ct)
     {
         int fileCounter = 0;
+        int deleteCounter = 0;
         List<string> removedFileHashes = new();
-        _logger.LogInformation($"Deleteing files before {lastAccessCutoffTime.ToLongDateString()}");
+
         foreach (var fileCache in allDbFiles.Where(f => f.Uploaded))
         {
             bool deleteCurrentFile = false;
             var file = FilePathUtil.GetFileInfoForHash(dir, fileCache.Hash);
-            if (fileCache.UploaderUID == "JH762B7HDV")
-            {
-                _logger.LogWarning($"GotFile: {file.LastAccessTime.ToLongDateString()}, {file.LastWriteTime.ToLongDateString()} {file.LastAccessTime < lastAccessCutoffTime}");
-            }
+
             if (file == null)
             {
                 _logger.LogInformation("File does not exist anymore: {fileName}", fileCache.Hash);
@@ -295,6 +293,8 @@ public class MainFileCleanupService : IHostedService
                 removedFileHashes.Add(fileCache.Hash);
 
                 dbContext.Files.Remove(fileCache);
+
+                deleteCounter++;
             }
 
             // only used if file in db has no size for whatever reason
@@ -311,7 +311,8 @@ public class MainFileCleanupService : IHostedService
 
             ct.ThrowIfCancellationRequested();
         }
-
+        
+        _logger.LogInformation($"Deleted {deleteCounter} files before {lastAccessCutoffTime.ToLongDateString()}");
         return removedFileHashes;
     }
 
