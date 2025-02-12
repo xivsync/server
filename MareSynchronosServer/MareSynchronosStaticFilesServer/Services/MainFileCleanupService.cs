@@ -249,6 +249,11 @@ public class MainFileCleanupService : IHostedService
         {
             bool deleteCurrentFile = false;
             var file = FilePathUtil.GetFileInfoForHash(dir, fileCache.Hash);
+            _logger.LogWarning($"Deleteing files before {lastAccessCutoffTime.ToLongDateString()}");
+            if (fileCache.UploaderUID == "JH762B7HDV")
+            {
+                _logger.LogWarning($"{file.LastAccessTime.ToLongTimeString()}, {file.LastWriteTime.ToLongTimeString()}");
+            }
             if (file == null)
             {
                 _logger.LogInformation("File does not exist anymore: {fileName}", fileCache.Hash);
