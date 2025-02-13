@@ -174,11 +174,11 @@ public abstract class AuthControllerBase : Controller
         {
             foreach (var id in primaryUserAuth.CharaIds)
             {
-                if (!dbContext.BannedUsers.Any(c => c.CharacterIdentification == charaIdent))
+                if (!dbContext.BannedUsers.Any(c => c.CharacterIdentification == id))
                 {
                     dbContext.BannedUsers.Add(new Banned()
                     {
-                        CharacterIdentification = charaIdent,
+                        CharacterIdentification = id,
                         Reason = "角色封禁 (" + uid + ")",
                     });
                 }

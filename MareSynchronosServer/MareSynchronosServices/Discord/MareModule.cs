@@ -402,6 +402,11 @@ public class MareModule : InteractionModuleBase
         using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
 
         var user = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(user.PrimaryUserUID))
+        {
+            var primaryId = user.PrimaryUserUID;
+            user = await dbContext.Auth.SingleAsync(u => u.UserUID == primaryId).ConfigureAwait(false);
+        }
         if (user.MarkForBan)
         {
             await RespondAsync("错误，用户已被封禁", ephemeral:true).ConfigureAwait(false);
@@ -411,15 +416,32 @@ public class MareModule : InteractionModuleBase
         var lodeStoneAuth = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == user.UserUID || u.User.UID == user.PrimaryUserUID).ConfigureAwait(false);
         if (lodeStoneAuth != null)
         {
-            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            dbContext.BannedRegistrations.Add(new BannedRegistrations
             {
-                DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId,
             });
-            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            dbContext.BannedRegistrations.Add(new BannedRegistrations
             {
-                DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString(),
             });
         }
+
+        //添加所有主UID下的CharaId
+        if (user.CharaIds is not null)
+        {
+            foreach (var id in user.CharaIds)
+            {
+                if (!dbContext.BannedUsers.Any(c => c.CharacterIdentification == id))
+                {
+                    dbContext.BannedUsers.Add(new Banned
+                    {
+                        CharacterIdentification = id,
+                        Reason = "角色封禁 (" + uid + ")",
+                    });
+                }
+            }
+        }
+
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
         var text = $"已将用户 `{uid}` 添加到封禁列表";
         if (!string.IsNullOrEmpty(reason)) text += $", 封禁原因: `{reason}`";
