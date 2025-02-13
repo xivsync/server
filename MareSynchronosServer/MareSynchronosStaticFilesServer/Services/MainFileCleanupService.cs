@@ -311,7 +311,7 @@ public class MainFileCleanupService : IHostedService
 
             ct.ThrowIfCancellationRequested();
         }
-        
+
         _logger.LogInformation($"Deleted {deleteCounter} files before {lastAccessCutoffTime.ToLongDateString()}");
         return removedFileHashes;
     }
