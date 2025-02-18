@@ -176,7 +176,7 @@ public partial class MareWizardModule : InteractionModuleBase
         else
         {
             cb.WithButton("用户信息", "wizard-userinfo", ButtonStyle.Secondary, new Emoji("ℹ️"));
-            cb.WithButton("恢复", "wizard-recover", ButtonStyle.Secondary, new Emoji("🏥"));
+            //cb.WithButton("恢复", "wizard-recover", ButtonStyle.Secondary, new Emoji("🏥"));
             cb.WithButton("辅助UID", "wizard-secondary", ButtonStyle.Secondary, new Emoji("2️⃣"));
             cb.WithButton("个性 UID", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💅"));
             cb.WithButton("删除", "wizard-delete", ButtonStyle.Danger, new Emoji("⚠️"));
