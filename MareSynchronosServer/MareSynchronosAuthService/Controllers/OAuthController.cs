@@ -36,6 +36,13 @@ public class OAuthController : AuthControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("afdCall")]
+    public IActionResult AFDWebSocket([FromBody] AFDApi.ApiResponse response)
+    {
+        return new JsonResult(new { ec = 200, em = "" });
+    }
+
+    [AllowAnonymous]
     [HttpGet(_discordOAuthCall)]
     public IActionResult DiscordOAuthSetCookieAndRedirect([FromQuery] string sessionId)
     {

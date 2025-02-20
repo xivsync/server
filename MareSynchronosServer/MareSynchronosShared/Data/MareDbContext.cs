@@ -54,6 +54,7 @@ public class MareDbContext : DbContext
     public DbSet<CharaDataOriginalFile> CharaDataOriginalFiles { get; set; }
     public DbSet<CharaDataPose> CharaDataPoses { get; set; }
     public DbSet<CharaDataAllowance> CharaDataAllowances { get; set; }
+    public DbSet<Support> Supports { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -147,5 +148,6 @@ public class MareDbContext : DbContext
         mb.Entity<CharaDataAllowance>().HasIndex(c => c.ParentId);
         mb.Entity<CharaDataAllowance>().HasOne(u => u.AllowedGroup).WithMany().HasForeignKey(u => u.AllowedGroupGID).OnDelete(DeleteBehavior.Cascade);
         mb.Entity<CharaDataAllowance>().HasOne(u => u.AllowedUser).WithMany().HasForeignKey(u => u.AllowedUserUID).OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<Support>().ToTable("supports");
     }
 }
