@@ -36,7 +36,7 @@ public class OAuthController : AuthControllerBase
     }
 
     [AllowAnonymous]
-    [HttpGet("afdCall")]
+    [HttpPost("afdCall")]
     public IActionResult AFDWebSocket([FromBody] AFDApi.ApiResponse response)
     {
         return new JsonResult(new { ec = 200, em = "" });
