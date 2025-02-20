@@ -15,6 +15,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Web;
+using MareSynchronosShared.Models;
 
 namespace MareSynchronosAuthService.Controllers;
 
@@ -37,8 +38,52 @@ public class OAuthController : AuthControllerBase
 
     [AllowAnonymous]
     [HttpPost("afdCall")]
-    public IActionResult AFDWebSocket([FromBody] AFDApi.ApiResponse response)
+    public async Task<IActionResult> AFDWebSocket([FromBody] AFDApi.ApiResponse response)
     {
+        using var dbContext = await MareDbContextFactory.CreateDbContextAsync();
+        var order = response.Data.Order;
+        ulong discordId = 0;
+        if (string.IsNullOrEmpty(order.CustomOrderId) || !ulong.TryParse(order.CustomOrderId, out discordId))
+        {
+            Logger.LogWarning($"[Support] Get an order without custom order ID. OutTradeNo: {order.OutTradeNo}");
+            return new JsonResult(new { ec = 200, em = "" });
+        }
+
+        var user = await dbContext.Supports.FirstOrDefaultAsync(x => x.DiscordId == discordId).ConfigureAwait(false);
+        if (user == null)
+        {
+            user = new Support
+            {
+                DiscordId = discordId,
+                ExpiresAt = DateTime.UtcNow,
+                LastOrder = null,
+                UserId = null,
+            };
+            dbContext.Supports.Add(user);
+        }
+
+        try
+        {
+            user.LastOrder = order.OutTradeNo;
+            if (user.UserId != null && user.UserId != order.UserId)
+            {
+                Logger.LogWarning(
+                    $"[Support] Update discord user {user.DiscordId}: Updating '{user.UserId}' with user ID '{order.UserId}'. OutTradeNo: {order.OutTradeNo}");
+                user.UserId = order.UserId;
+            }
+            if (user.ExpiresAt < DateTime.UtcNow)
+            {
+                user.ExpiresAt = DateTime.UtcNow;
+            }
+
+            user.ExpiresAt = user.ExpiresAt!.Value.AddMonths(order.Month);
+
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError($"[Support] Error: " + ex, ex.Message);
+        }
+        await dbContext.SaveChangesAsync();
         return new JsonResult(new { ec = 200, em = "" });
     }
 

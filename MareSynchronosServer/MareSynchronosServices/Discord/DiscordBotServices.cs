@@ -169,4 +169,14 @@ public class DiscordBotServices
     {
         _guild = guild;
     }
+
+    public async Task UpdateSupporterForUser(IUser user, ulong? roleId)
+    {
+        if (roleId == null) return;
+        var restUser = await _guild.GetUserAsync(user.Id).ConfigureAwait(false);
+        if (restUser == null) return;
+        if (!restUser.RoleIds.Contains(roleId.Value))
+            await restUser.AddRoleAsync(roleId.Value).ConfigureAwait(false);
+        Logger.LogInformation("Updated Supporter for {key}", restUser.Id);
+    }
 }

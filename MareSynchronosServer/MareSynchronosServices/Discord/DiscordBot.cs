@@ -256,7 +256,45 @@ internal class DiscordBot : IHostedService
         _ = RemoveUsersNotInVanityRole(_clientConnectedCts.Token);
         _ = RemoveUnregisteredUsers(_clientConnectedCts.Token);
         _ = ProcessReportsQueue();
+        _ = CheckSupporters(_clientConnectedCts.Token);
     }
+
+    private async Task CheckSupporters(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                _logger.LogInformation("Updating Supporter Roles");
+                ulong? supporter = _configurationService.GetValueOrDefault(nameof(ServicesConfiguration.Supporter), new ulong?());
+                if (supporter == null) return;
+                var guild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
+                var restGuild = await _discordClient.Rest.GetGuildAsync(guild.Id).ConfigureAwait(false);
+                using var db = await _dbContextFactory.CreateDbContextAsync(token).ConfigureAwait(false);
+
+                var users = db.Supports.Where(x => x.ExpiresAt < DateTime.UtcNow).Select(x => x.DiscordId).ToList();
+
+                foreach (var user in users)
+                {
+                    var discordUser = await restGuild.GetUserAsync(user).ConfigureAwait(false);
+                    if (discordUser != null)
+                    {
+                        if (discordUser.RoleIds.Contains(supporter.Value))
+                        {
+                            await _discordClient.Rest.RemoveRoleAsync(guild.Id, discordUser.Id, supporter.Value).ConfigureAwait(false);
+                            _logger.LogInformation($"Supporter Role Removed from {discordUser.Id}");
+                        }
+                    }
+                }
+                await Task.Delay(TimeSpan.FromHours(12), token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error during CheckSupporters");
+            }
+        }
+    }
+
 
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
     {
