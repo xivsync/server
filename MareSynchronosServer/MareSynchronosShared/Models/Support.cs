@@ -15,4 +15,7 @@ public class Support
     [MaxLength(100)]
     public string? UserId { get; set; }
 
+    public string UserUID { get; set; }
+    public User User { get; set; }
+
 }
