@@ -68,14 +68,13 @@ public sealed class SystemInfoService : IHostedService, IDisposable
                     select auth.User.UID
                 )
                 .Distinct()
-                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase);
+                .ToList();
 
-            var sortedDistinctUserUids = combinedQuery.ToList();
+            combinedQuery.Sort(StringComparer.OrdinalIgnoreCase);
 
-            if (sortedDistinctUserUids.SequenceEqual(Supporters.Supporters.OrderBy(x => x, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase))
-                return;
+            if (combinedQuery.SequenceEqual(Supporters.Supporters, StringComparer.OrdinalIgnoreCase)) return;
 
-            Supporters = new SupporterDto(sortedDistinctUserUids);
+            Supporters = new SupporterDto(combinedQuery);
             _ = _hubContext.Clients.All.Client_UpdateSupporterList(Supporters).ConfigureAwait(false);
             _logger.LogWarning("Updated Supporter list, count {count}", Supporters.Supporters.Count);
         }
