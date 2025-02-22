@@ -91,7 +91,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
 
         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Welcome to Mare Synchronos \"" + _shardName + "\", Current Online Users: " + _systemInfoService.SystemInfoDto.OnlineUsers).ConfigureAwait(false);
 
-        await Clients.Caller.Client_UpdateSupporterList(_systemInfoService.Supporters).ConfigureAwait(false);
+        await Clients.Caller.Client_UpdateSupporterList(_systemInfoService.SupportersDto).ConfigureAwait(false);
 
         var defaultPermissions = await DbContext.UserDefaultPreferredPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
         if (defaultPermissions == null)

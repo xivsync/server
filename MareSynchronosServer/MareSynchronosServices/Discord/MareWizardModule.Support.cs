@@ -50,8 +50,8 @@ public partial class MareWizardModule
 
             eb.AddField("赞助到期时间:",
                 $"<t:{new DateTimeOffset(user.ExpiresAt.Value.ToUniversalTime()).ToUnixTimeSeconds()}:f>");
-            eb.AddField("最后一次赞助订单号:", $"{user.LastOrder}");
-            eb.AddField("最后一次赞助的用户ID", $"{user.UserId}");
+            eb.AddField("最近一次赞助订单号:", $"{user.LastOrder}");
+            eb.AddField("最近一次赞助的用户ID", $"{user.UserId}");
         }
         else
         {

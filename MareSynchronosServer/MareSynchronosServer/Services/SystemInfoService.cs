@@ -22,7 +22,7 @@ public sealed class SystemInfoService : IHostedService, IDisposable
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
     private Timer _timer;
     private Timer _timer2;
-    public SupporterDto Supporters = new([]);
+    public SupporterDto SupportersDto = new([]);
     public SystemInfoDto SystemInfoDto { get; private set; } = new();
 
     public SystemInfoService(MareMetrics mareMetrics, IConfigurationService<ServerConfiguration> configurationService, IServiceProvider services,
@@ -72,11 +72,11 @@ public sealed class SystemInfoService : IHostedService, IDisposable
 
             combinedQuery.Sort(StringComparer.OrdinalIgnoreCase);
 
-            if (combinedQuery.SequenceEqual(Supporters.Supporters, StringComparer.OrdinalIgnoreCase)) return;
+            if (combinedQuery.SequenceEqual(SupportersDto.Supporters, StringComparer.OrdinalIgnoreCase)) return;
 
-            Supporters = new SupporterDto(combinedQuery);
-            _ = _hubContext.Clients.All.Client_UpdateSupporterList(Supporters).ConfigureAwait(false);
-            _logger.LogWarning("Updated Supporter list, count {count}", Supporters.Supporters.Count);
+            SupportersDto = new SupporterDto(combinedQuery);
+            _ = _hubContext.Clients.All.Client_UpdateSupporterList(SupportersDto).ConfigureAwait(false);
+            _logger.LogWarning("Updated Supporter list, count {count}", SupportersDto.Supporters.Count);
         }
         catch (Exception ex)
         {
