@@ -77,6 +77,7 @@ public sealed class SystemInfoService : IHostedService, IDisposable
 
             Supporters = new SupporterDto(sortedDistinctUserUids);
             _ = _hubContext.Clients.All.Client_UpdateSupporterList(Supporters).ConfigureAwait(false);
+            _logger.LogWarning("Updated Supporter list, count {count}", Supporters.Supporters.Count);
         }
         catch (Exception ex)
         {
