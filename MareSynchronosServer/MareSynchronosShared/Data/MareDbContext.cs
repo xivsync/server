@@ -149,5 +149,6 @@ public class MareDbContext : DbContext
         mb.Entity<CharaDataAllowance>().HasOne(u => u.AllowedGroup).WithMany().HasForeignKey(u => u.AllowedGroupGID).OnDelete(DeleteBehavior.Cascade);
         mb.Entity<CharaDataAllowance>().HasOne(u => u.AllowedUser).WithMany().HasForeignKey(u => u.AllowedUserUID).OnDelete(DeleteBehavior.Cascade);
         mb.Entity<Support>().ToTable("supports");
+        mb.Entity<Support>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserUID).OnDelete(DeleteBehavior.Cascade);
     }
 }
