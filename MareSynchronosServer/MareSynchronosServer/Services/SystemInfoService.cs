@@ -57,12 +57,12 @@ public sealed class SystemInfoService : IHostedService, IDisposable
 
             var combinedQuery =
                 (from support in db.Supports.AsNoTracking()
-                    where support.ExpiresAt > DateTime.Now
+                    where support.ExpiresAt > DateTime.UtcNow
                     select support.UserUID)
                 .Union(
                     from auth in db.Auth.AsNoTracking()
                     where db.Supports.AsNoTracking()
-                        .Where(s => s.ExpiresAt > DateTime.Now)
+                        .Where(s => s.ExpiresAt > DateTime.UtcNow)
                         .Select(s => s.UserUID)
                         .Contains(auth.PrimaryUserUID)
                     select auth.User.UID
