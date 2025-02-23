@@ -574,7 +574,8 @@ public partial class MareHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         if (!await DbContext.GroupPairs.AsNoTracking().AnyAsync(x => x.GroupGID == groupChatDto.GID && x.GroupUserUID == groupChatDto.User.UID).ConfigureAwait(false))
             return;
-        await Clients.Group(groupChatDto.GID).Client_GroupChat(groupChatDto).ConfigureAwait(false);
+        var groupPairs = DbContext.GroupPairs.AsNoTracking().Where(p => p.GroupGID == groupChatDto.GID).Select(p => p.GroupUserUID).ToList();
+        await Clients.Users(groupPairs).Client_GroupChat(groupChatDto).ConfigureAwait(false);
     }
 
     [Authorize(Policy = "Identified")]
