@@ -560,6 +560,23 @@ public partial class MareHub
         return usersToPrune.Count();
     }
 
+    public async Task GroupChatServer(GroupChatDto groupChatDto)
+    {
+        _logger.LogCallInfo(MareHubLogger.Args(groupChatDto));
+        var chat = new Chat
+        {
+            TimeStamp = DateTime.UtcNow,
+            Message = groupChatDto.Message,
+            SenderId = groupChatDto.User.UID,
+            GroupId = groupChatDto.Group.GID,
+        };
+        DbContext.ChatLog.Add(chat);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        if (!await DbContext.GroupPairs.AsNoTracking().AnyAsync(x => x.GroupGID == groupChatDto.GID && x.GroupUserUID == groupChatDto.User.UID).ConfigureAwait(false))
+            return;
+        await Clients.Group(groupChatDto.GID).Client_GroupChat(groupChatDto).ConfigureAwait(false);
+    }
+
     [Authorize(Policy = "Identified")]
     public async Task GroupRemoveUser(GroupPairDto dto)
     {
