@@ -567,7 +567,8 @@ public partial class MareHub
         _logger.LogCallInfo(MareHubLogger.Args(groupChatDto));
 
         var group = await DbContext.Groups.AsNoTracking().SingleOrDefaultAsync(x => x.GID == groupChatDto.GID).ConfigureAwait(false);
-        if (!await DbContext.Supports.AsNoTracking().AnyAsync(x => x.UserUID == group.OwnerUID).ConfigureAwait(false))
+        if (!await DbContext.Supports.AsNoTracking().AnyAsync(x => x.UserUID == group.OwnerUID).ConfigureAwait(false)
+            || !await DbContext.Groups.AsNoTracking().AnyAsync(x => x.GID == groupChatDto.GID && x.EnabledChat == true).ConfigureAwait(false))
         {
             var errorDto = new GroupChatDto(new UserData("SYSTEM-INFO"), groupChatDto.Group, groupChatDto.Time, "该群组暂未开放聊天.");
             await Clients.User(groupChatDto.User.UID).Client_GroupChat(errorDto).ConfigureAwait(false);
