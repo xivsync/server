@@ -37,6 +37,7 @@ public static class Extensions
         permissions.SetPreferDisableSounds(group.PreferDisableSounds);
         permissions.SetPreferDisableVFX(group.PreferDisableVFX);
         permissions.SetDisableInvites(!group.InvitesEnabled);
+        permissions.SetEnabledChat(group.EnabledChat);
         return permissions;
     }
 

@@ -16,4 +16,5 @@ public class Group
     public bool PreferDisableSounds { get; set; }
     public bool PreferDisableAnimations { get; set; }
     public bool PreferDisableVFX { get; set; }
+    public bool? EnabledChat { get; set; }
 }

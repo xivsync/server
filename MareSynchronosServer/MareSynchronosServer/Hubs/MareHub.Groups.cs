@@ -57,6 +57,7 @@ public partial class MareHub
         group.PreferDisableSounds = dto.Permissions.HasFlag(GroupPermissions.PreferDisableSounds);
         group.PreferDisableAnimations = dto.Permissions.HasFlag(GroupPermissions.PreferDisableAnimations);
         group.PreferDisableVFX = dto.Permissions.HasFlag(GroupPermissions.PreferDisableVFX);
+        group.EnabledChat = dto.Permissions.HasFlag(GroupPermissions.EnableChat);
 
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
@@ -180,7 +181,7 @@ public partial class MareHub
             OwnerUID = UserUID,
             PreferDisableAnimations = defaultPermissions.DisableGroupAnimations,
             PreferDisableSounds = defaultPermissions.DisableGroupSounds,
-            PreferDisableVFX = defaultPermissions.DisableGroupVFX
+            PreferDisableVFX = defaultPermissions.DisableGroupVFX,
         };
 
         GroupPair initialPair = new()
