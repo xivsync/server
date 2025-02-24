@@ -1,4 +1,6 @@
-﻿using MareSynchronos.API.Data.Enum;
+﻿using System.Security.Cryptography;
+using MareSynchronos.API.Data;
+using MareSynchronos.API.Data.Enum;
 using MareSynchronos.API.Data.Extensions;
 using MareSynchronos.API.Dto.Group;
 using MareSynchronosServer.Utils;
@@ -7,7 +9,6 @@ using MareSynchronosShared.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
 
 namespace MareSynchronosServer.Hubs;
 
@@ -563,14 +564,23 @@ public partial class MareHub
     public async Task GroupChatServer(GroupChatDto groupChatDto)
     {
         _logger.LogCallInfo(MareHubLogger.Args(groupChatDto));
-        var chat = new Chat
+
+        var group = await DbContext.Groups.AsNoTracking().SingleOrDefaultAsync(x => x.GID == groupChatDto.GID).ConfigureAwait(false);
+        if (!await DbContext.Supports.AsNoTracking().AnyAsync(x => x.UserUID == group.OwnerUID).ConfigureAwait(false))
+        {
+            var errorDto = new GroupChatDto(new UserData("SYSTEM-ERROR"), groupChatDto.Group, groupChatDto.Time, "该群组暂未开放聊天.");
+            await Clients.User(groupChatDto.User.UID).Client_GroupChat(errorDto).ConfigureAwait(false);
+            return;
+        }
+
+        var message = new Chat
         {
             TimeStamp = DateTime.UtcNow,
             Message = groupChatDto.Message,
             SenderId = groupChatDto.User.UID,
             GroupId = groupChatDto.Group.GID,
         };
-        DbContext.ChatLog.Add(chat);
+        DbContext.ChatLog.Add(message);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         if (!await DbContext.GroupPairs.AsNoTracking().AnyAsync(x => x.GroupGID == groupChatDto.GID && x.GroupUserUID == groupChatDto.User.UID).ConfigureAwait(false))
             return;
