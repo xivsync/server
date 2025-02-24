@@ -180,10 +180,7 @@ public partial class MareWizardModule : InteractionModuleBase
             cb.WithButton("辅助UID", "wizard-secondary", ButtonStyle.Secondary, new Emoji("2️⃣"));
             cb.WithButton("个性 UID", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💅"));
             cb.WithButton("删除", "wizard-delete", ButtonStyle.Danger, new Emoji("⚠️"));
-            if (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.Administrator)
-            {
-                cb.WithButton("赞助", "wizard-support", ButtonStyle.Secondary, new Emoji("💎"));
-            }
+            cb.WithButton("赞助", "wizard-support", ButtonStyle.Secondary, new Emoji("💎"));
         }
 
         await InitOrUpdateInteraction(init, eb, cb).ConfigureAwait(false);
@@ -231,9 +228,9 @@ public partial class MareWizardModule : InteractionModuleBase
         }
 
         EmbedBuilder eb = new();
-        eb.WithTitle("Session expired");
-        eb.WithDescription("This session has expired since you have either again pressed \"Start\" on the initial message or the bot has been restarted." + Environment.NewLine + Environment.NewLine
-            + "Please use the newly started interaction or start a new one.");
+        eb.WithTitle("会话已过期");
+        eb.WithDescription("当前的会话已经过期, 请重新点击 \"开始\" 按钮开始一个新的对话." + Environment.NewLine + Environment.NewLine
+            + "请使用最近一次的对话进行交互.");
         eb.WithColor(Color.Red);
         ComponentBuilder cb = new();
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
