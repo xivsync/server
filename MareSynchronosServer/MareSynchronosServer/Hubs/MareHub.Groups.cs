@@ -568,7 +568,7 @@ public partial class MareHub
         var group = await DbContext.Groups.AsNoTracking().SingleOrDefaultAsync(x => x.GID == groupChatDto.GID).ConfigureAwait(false);
         if (!await DbContext.Supports.AsNoTracking().AnyAsync(x => x.UserUID == group.OwnerUID).ConfigureAwait(false))
         {
-            var errorDto = new GroupChatDto(new UserData("SYSTEM-ERROR"), groupChatDto.Group, groupChatDto.Time, "该群组暂未开放聊天.");
+            var errorDto = new GroupChatDto(new UserData("SYSTEM-INFO"), groupChatDto.Group, groupChatDto.Time, "该群组暂未开放聊天.");
             await Clients.User(groupChatDto.User.UID).Client_GroupChat(errorDto).ConfigureAwait(false);
             return;
         }
