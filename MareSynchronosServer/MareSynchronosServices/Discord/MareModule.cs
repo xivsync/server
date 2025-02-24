@@ -59,6 +59,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
+    [RequireUserPermission(GuildPermission.Administrator)]
     [SlashCommand("useradd", "仅限管理员：无条件添加用户到数据库")]
     public async Task UserAdd([Summary("desired_uid", "用户 UID")] string desiredUid)
     {
@@ -82,6 +83,7 @@ public class MareModule : InteractionModuleBase
         }
     }
 
+    [RequireUserPermission(GuildPermission.Administrator)]
     [SlashCommand("mod", "仅限Admin：调整管理")]
     public async Task Mod([Summary("discord_user", "仅限管理员：目标的 Discord 用户")] IUser discordUser = null,
         [Summary("arg", "参数: add 或 remove")]string arg = null)
@@ -145,6 +147,7 @@ public class MareModule : InteractionModuleBase
         return embed.Build();
     }
 
+    [RequireUserPermission(GuildPermission.Administrator)]
     [SlashCommand("message", "仅管理员：向客户端发送消息")]
     public async Task SendMessageToClients([Summary("message", "要发送的消息")] string message,
         [Summary("severity", "消息严重性")] MessageSeverity messageType = MessageSeverity.Information,

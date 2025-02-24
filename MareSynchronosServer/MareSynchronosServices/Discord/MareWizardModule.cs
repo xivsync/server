@@ -180,7 +180,10 @@ public partial class MareWizardModule : InteractionModuleBase
             cb.WithButton("辅助UID", "wizard-secondary", ButtonStyle.Secondary, new Emoji("2️⃣"));
             cb.WithButton("个性 UID", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💅"));
             cb.WithButton("删除", "wizard-delete", ButtonStyle.Danger, new Emoji("⚠️"));
-            //cb.WithButton("赞助", "wizard-support", ButtonStyle.Secondary, new Emoji("💎"));
+            if (Context.User is IGuildUser guildUser && guildUser.GuildPermissions.Administrator)
+            {
+                cb.WithButton("赞助", "wizard-support", ButtonStyle.Secondary, new Emoji("💎"));
+            }
         }
 
         await InitOrUpdateInteraction(init, eb, cb).ConfigureAwait(false);
