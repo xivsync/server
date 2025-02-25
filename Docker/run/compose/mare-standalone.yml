@@ -57,6 +57,7 @@ services:
     restart: on-failure
     ports:
       - 6060:8080/tcp
+      - 6150:6150/tcp
     environment:
       MareSynchronos__PublicOAuthBaseUri: "${DEV_MARE_PublicOAuthBaseUri}"
       MareSynchronos__DiscordOAuthClientSecret: "${DEV_MARE_DiscordOAuthClientSecret}"
@@ -75,6 +76,8 @@ services:
   mare-services:
     image: darkarchon/mare-synchronos-services:latest
     restart: on-failure
+    ports:
+      - 6350:6350/tcp
     environment:
       MareSynchronos__SZJCookie: "${DEV_MARE_SZJCOOKIE}"
       MareSynchronos__DiscordBotToken: "${DEV_MARE_DISCORDTOKEN}"
@@ -96,6 +99,7 @@ services:
     image: darkarchon/mare-synchronos-staticfilesserver:latest
     ports:
       - 6200:6200/tcp
+      - 6250:6250/tcp
     restart: on-failure
     environment:
       MareSynchronos__CdnFullUrl: "${DEV_MARE_CDNURL}"
