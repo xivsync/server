@@ -56,8 +56,9 @@ public class OAuthController : AuthControllerBase
             {
                 DiscordId = discordId,
                 ExpiresAt = DateTime.UtcNow,
-                LastOrder = null,
-                UserId = null,
+                LastOrder = order.OutTradeNo,
+                UserId = order.UserId,
+                UserUID = order.CustomOrderId,
             };
             dbContext.Supports.Add(user);
         }
@@ -65,17 +66,25 @@ public class OAuthController : AuthControllerBase
         try
         {
             user.LastOrder = order.OutTradeNo;
-            if (user.UserId != null && user.UserId != order.UserId)
+
+            if (user.UserId != order.UserId)
             {
                 Logger.LogWarning(
-                    $"[Support] Update discord user {user.DiscordId}: Updating '{user.UserId}' with user ID '{order.UserId}'. OutTradeNo: {order.OutTradeNo}");
+                    $"[Support] Update discord user {user.DiscordId}: Updating user ID '{order.UserId}'. OutTradeNo: {order.OutTradeNo}");
                 user.UserId = order.UserId;
             }
+
+            if (user.UserUID != order.CustomOrderId)
+            {
+                Logger.LogWarning(
+                    $"[Support] Update discord user {user.DiscordId}: Updating user UID '{order.CustomOrderId}'. OutTradeNo: {order.OutTradeNo}");
+                user.UserUID = order.CustomOrderId;
+            }
+
             if (user.ExpiresAt < DateTime.UtcNow)
             {
                 user.ExpiresAt = DateTime.UtcNow;
             }
-
             user.ExpiresAt = user.ExpiresAt!.Value.AddMonths(order.Month);
 
         }
