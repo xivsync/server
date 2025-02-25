@@ -84,7 +84,7 @@ public class OAuthController : AuthControllerBase
             {
                 user.ExpiresAt = DateTime.UtcNow;
             }
-            user.ExpiresAt = user.ExpiresAt!.Value.AddMonths(order.Month);
+            user.ExpiresAt = user.ExpiresAt!.Value.AddDays(order.Month * 31);
 
         }
         catch (Exception ex)
