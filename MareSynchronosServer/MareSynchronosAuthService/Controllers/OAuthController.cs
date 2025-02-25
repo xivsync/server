@@ -43,6 +43,7 @@ public class OAuthController : AuthControllerBase
         using var dbContext = await MareDbContextFactory.CreateDbContextAsync();
         var order = response.Data.Order;
         ulong discordId = 0;
+        Logger.LogInformation($"[Support] Get an order {JsonSerializer.Serialize(order)}");
         if (string.IsNullOrEmpty(order.CustomOrderId) || !ulong.TryParse(order.CustomOrderId, out discordId))
         {
             Logger.LogWarning($"[Support] Get an order without custom order ID. OutTradeNo: {order.OutTradeNo}");
