@@ -50,21 +50,27 @@ public class OAuthController : AuthControllerBase
         }
 
         var user = await dbContext.Supports.FirstOrDefaultAsync(x => x.DiscordId == discordId).ConfigureAwait(false);
+        var auth = await dbContext.LodeStoneAuth.AsNoTracking().FirstOrDefaultAsync(x => x.DiscordId == discordId).ConfigureAwait(false);
         if (user == null)
         {
             user = new Support
             {
                 DiscordId = discordId,
                 ExpiresAt = DateTime.UtcNow,
-                LastOrder = order.OutTradeNo,
+                LastOrder = string.Empty,
                 UserId = order.UserId,
-                UserUID = order.CustomOrderId,
+                UserUID = auth!.User!.UID,
             };
             dbContext.Supports.Add(user);
         }
 
         try
         {
+            if (user.LastOrder == order.OutTradeNo)
+            {
+                throw new Exception(
+                    $"Discord user {user.DiscordId} issued an order has same outTradeNo {order.OutTradeNo}");
+            }
             user.LastOrder = order.OutTradeNo;
 
             if (user.UserId != order.UserId)
@@ -72,13 +78,6 @@ public class OAuthController : AuthControllerBase
                 Logger.LogWarning(
                     $"[Support] Update discord user {user.DiscordId}: Updating user ID '{order.UserId}'. OutTradeNo: {order.OutTradeNo}");
                 user.UserId = order.UserId;
-            }
-
-            if (user.UserUID != order.CustomOrderId)
-            {
-                Logger.LogWarning(
-                    $"[Support] Update discord user {user.DiscordId}: Updating user UID '{order.CustomOrderId}'. OutTradeNo: {order.OutTradeNo}");
-                user.UserUID = order.CustomOrderId;
             }
 
             if (user.ExpiresAt < DateTime.UtcNow)
