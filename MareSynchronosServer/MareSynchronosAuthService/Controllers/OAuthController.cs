@@ -51,8 +51,8 @@ public class OAuthController : AuthControllerBase
         }
 
         var user = await dbContext.Supports.FirstOrDefaultAsync(x => x.DiscordId == discordId).ConfigureAwait(false);
-        var auth = await dbContext.LodeStoneAuth.AsNoTracking().FirstOrDefaultAsync(x => x.DiscordId == discordId).ConfigureAwait(false);
-        if (user == null)
+        var auth = await dbContext.LodeStoneAuth.AsNoTracking().Include(x => x.User).FirstOrDefaultAsync(x => x.DiscordId == discordId).ConfigureAwait(false);
+        if (user is null)
         {
             user = new Support
             {
@@ -60,9 +60,10 @@ public class OAuthController : AuthControllerBase
                 ExpiresAt = DateTime.UtcNow,
                 LastOrder = string.Empty,
                 UserId = order.UserId,
-                UserUID = auth!.User!.UID,
+                UserUID = auth?.User?.UID ?? string.Empty,
             };
             dbContext.Supports.Add(user);
+            Logger.LogInformation($"[Support] New Supporter {discordId} - {auth?.User?.UID}");
         }
 
         try
