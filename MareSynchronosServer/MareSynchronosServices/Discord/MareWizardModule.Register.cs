@@ -129,15 +129,15 @@ public partial class MareWizardModule
                 eb.WithTitle($"注册成功，您的UID：{uid}");
                 eb.WithDescription("这是您的私人密钥。 不要与任何人共享此私人密钥。 **如果你失去了它，它就永远失去了。**"
                                              + Environment.NewLine + Environment.NewLine
-                                             + $"**{key}**"
+                                             + "**__注意: MareCN服务器目前不支持密钥登录，请使用OAuth登录连接.__**"
                                              + Environment.NewLine + Environment.NewLine
-                                             + "在 Mare Synchronos 中输入此密钥并点击“保存”以连接到该服务。"
+                                             + $"||**`{key}`**||"
+                                             + Environment.NewLine + Environment.NewLine
+                                             + "你无需保存该密钥。"
                                              + Environment.NewLine
                                              + "__注意: 密钥仅包括英文 ABCDEF 和数字 0 - 9.__"
                                              + Environment.NewLine
-                                             + " __注意: 建议使用OAuth2登录,密钥登录可能在未来会被放弃支持.__"
-                                             + Environment.NewLine
-                                             + "您应该尽快连接，以免被自动清理。"
+                                             + "您应该尽快连接，以免被自动清理."
                                              + Environment.NewLine
                                              + "玩得开心。");
                 AddHome(cb);
@@ -153,9 +153,9 @@ public partial class MareWizardModule
                     + Environment.NewLine + Environment.NewLine
                     + "**请确保你的个人资料对所有人公开，否则机器人将无法正常读取。**" 
                     + Environment.NewLine + Environment.NewLine
-                    + "## 你 __必须__ 输入以下代码让机器人查询:" 
+                    + "## 你 __需要__ 输入以下文字让机器人进行抓取:"
                     + Environment.NewLine + Environment.NewLine
-                    + "**" + verificationCode + "**");
+                    + "**`" + verificationCode + "`**");
                 cb.WithButton("取消", "wizard-register", emote: new Emoji("❌"));
                 cb.WithButton("重试", "wizard-register-verify:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("🔁"));
             }
@@ -185,7 +185,7 @@ public partial class MareWizardModule
         // check if discord id or lodestone id is banned
         if (db.BannedRegistrations.Any(a => a.DiscordIdOrLodestoneAuth == hashedLodestoneId))
         {
-            embed.WithDescription("This account is banned");
+            embed.WithDescription("账号已被封禁");
             return (false, string.Empty);
         }
 
@@ -201,9 +201,9 @@ public partial class MareWizardModule
         embed.WithTitle("验证您的角色");
         embed.WithDescription("将以下密钥添加到您的角色个人简介中：https://ff14risingstones.web.sdo.com/pc/index.html#/me/settings/main"
                               + Environment.NewLine
-                              + "__NOTE: If the link does not lead you to your character edit profile page, you need to log in and set up your privacy settings!__"
+                              + "__注意: 如果这个连接无法打开你的个人主页，请修改你的公开设置!__"
                               + Environment.NewLine + Environment.NewLine
-                              + $"**{lodestoneAuth}**"
+                              + $"**`{lodestoneAuth}`**"
                               + Environment.NewLine + Environment.NewLine
                               + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
                               + Environment.NewLine + Environment.NewLine

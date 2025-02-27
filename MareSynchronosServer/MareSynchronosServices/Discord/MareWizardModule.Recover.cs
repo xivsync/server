@@ -73,11 +73,11 @@ public partial class MareWizardModule
         embed.WithTitle($"您的账号 {uid} 恢复成功。");
         embed.WithDescription("这里是你的同步密钥。不要与任何人分享它 **如果它丢失了，是无法恢复的。**"
                               + Environment.NewLine + Environment.NewLine
-                              + $"**{computedHash}**"
+                              + "**__NOTE: Secret keys are considered legacy authentication. If you are using the suggested OAuth2 authentication, you do not need to use the Secret Key or recover ever again.__**"
+                              + Environment.NewLine + Environment.NewLine
+                              + $"||**`{computedHash}`**||"
                               + Environment.NewLine
                               + "__NOTE: The Secret Key only contains the letters ABCDEF and numbers 0 - 9.__"
-                              + Environment.NewLine
-                              +" __NOTE: If you are using the suggested OAuth2 authentication, you do not need to use the Secret Key__"
                               + Environment.NewLine + Environment.NewLine
                               + "输入此同步密钥到Mare服务设置中并重新连接服务。");
 

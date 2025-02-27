@@ -124,9 +124,11 @@ public partial class MareWizardModule
                 eb.WithTitle($"重新链接成功，您的UID又回来了: {uid}");
                 eb.WithDescription("这是您的私人密钥。 不要与任何人共享此私人密钥。 **如果你失去了它，就永远失去了。**"
                                              + Environment.NewLine + Environment.NewLine
-                                             + $"**{key}**"
+                                             + $"||**`{key}`**||"
                                              + Environment.NewLine + Environment.NewLine
                                              + "在 Mare Synchronos 中输入此密钥并点击“保存”以连接到该服务。"
+                                             + Environment.NewLine + Environment.NewLine
+                                             + "注意: 请使用 OAuth2, 你不需要保存该密钥."
                                              + Environment.NewLine
                                              + "玩得开心。");
                 AddHome(cb);
@@ -137,10 +139,11 @@ public partial class MareWizardModule
             {
                 eb.WithColor(Color.Gold);
                 eb.WithTitle("重新链接失败");
-                eb.WithDescription("机器人无法在您的石之家个人简介中找到所需的验证码。" + Environment.NewLine + Environment.NewLine
-                    + "请重新启动您的重新链接过程，确保保存您的个人简介。" + Environment.NewLine + Environment.NewLine
+                eb.WithDescription("机器人无法在您的石之家个人简介中找到所需的验证码." + Environment.NewLine + Environment.NewLine
+                    + "请重新启动您的重新链接过程，确保保存您的个人简介." + Environment.NewLine + Environment.NewLine
+                    + "**请确保你的资料已设置为公开，否则机器人将无法获取对应的内容.**" + Environment.NewLine + Environment.NewLine
                     + "机器人正在寻找的代码是" + Environment.NewLine + Environment.NewLine
-                    + "**" + verificationCode + "**");
+                    + "**`" + verificationCode + "`**");
                 cb.WithButton("取消", "wizard-relink", emote: new Emoji("❌"));
                 cb.WithButton("重试", "wizard-relink-verify:" + verificationCode + "," + uid, ButtonStyle.Primary, emote: new Emoji("🔁"));
             }
@@ -190,14 +193,14 @@ public partial class MareWizardModule
         // check if lodestone id is already in db
         embed.WithTitle("验证您的角色来重新连接");
         embed.WithDescription("将以下密钥添加到您的角色个人简介中：https://ff14risingstones.web.sdo.com/pc/index.html#/me/settings/main"
-                            + Environment.NewLine + Environment.NewLine
-                            + $"**{lodestoneAuth}**"
-                            + Environment.NewLine + Environment.NewLine
-                            + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
-                            + Environment.NewLine
-                            + "__验证后，您可以从您的个人简介中删除该条目。__"
-                            + Environment.NewLine + Environment.NewLine
-                            + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
+                              + Environment.NewLine + Environment.NewLine
+                              + $"**`{lodestoneAuth}`**"
+                              + Environment.NewLine + Environment.NewLine
+                              + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
+                              + Environment.NewLine
+                              + "__验证后，您可以从您的个人简介中删除该条目。__"
+                              + Environment.NewLine + Environment.NewLine
+                              + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
         _botServices.DiscordRelinkLodestoneMapping[Context.User.Id] = lodestoneId.ToString();
 
         return (true, lodestoneAuth, expectedUser.User.UID);
