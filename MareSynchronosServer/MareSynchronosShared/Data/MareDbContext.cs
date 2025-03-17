@@ -56,6 +56,7 @@ public class MareDbContext : DbContext
     public DbSet<CharaDataAllowance> CharaDataAllowances { get; set; }
     public DbSet<Support> Supports { get; set; }
     public DbSet<Chat> ChatLog { get; set; }
+    public DbSet<Moodles> Moodles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -154,5 +155,7 @@ public class MareDbContext : DbContext
         mb.Entity<Chat>().ToTable("chat_log");
         mb.Entity<Chat>().HasOne(c => c.Sender).WithMany().HasForeignKey(c => c.SenderId).OnDelete(DeleteBehavior.NoAction);
         mb.Entity<Chat>().HasOne(c => c.Group).WithMany().HasForeignKey(c => c.GroupId).OnDelete(DeleteBehavior.NoAction);
+        mb.Entity<Moodles>().ToTable("moodles");
+        mb.Entity<Moodles>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserUID).OnDelete(DeleteBehavior.NoAction);
     }
 }
