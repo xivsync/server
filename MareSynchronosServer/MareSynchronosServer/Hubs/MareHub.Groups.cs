@@ -562,6 +562,7 @@ public partial class MareHub
         return usersToPrune.Count();
     }
 
+    [Authorize(Policy = "Identified")]
     public async Task GroupChatServer(GroupChatDto groupChatDto)
     {
         _logger.LogCallInfo(MareHubLogger.Args(groupChatDto));

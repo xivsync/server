@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
+using System.Text.Json;
 using MareSynchronos.API.Dto.User;
 
 namespace MareSynchronosServer.Hubs;
@@ -231,5 +232,44 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
         await Clients.User(dto.User.UID).Client_UserApplyMoodlesByStatus(newDto).ConfigureAwait(false);
 
         return true;
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task MoodlesShare(MoodlesDto dto)
+    {
+        try
+        {
+            if (dto.Action == MoodlesAction.UpLoad)
+            {
+                var json = JsonSerializer.Deserialize<Moodles>(dto.Statuses);
+                var moodles = await DbContext.Moodles.FirstOrDefaultAsync(x => x.UserUID == dto.User.UID && x.GUID == json.GUID).ConfigureAwait(false);
+                if (moodles is null)
+                {
+                    moodles = new Moodles();
+                    moodles.UserUID = dto.User.UID;
+                }
+                moodles = json;
+                DbContext.SaveChanges();
+            }
+            else if (dto.Action == MoodlesAction.Remove)
+            {
+                var json = JsonSerializer.Deserialize<Moodles>(dto.Statuses);
+                var moodles = await DbContext.Moodles.FirstOrDefaultAsync(x => x.UserUID == dto.User.UID && x.GUID == json.GUID).ConfigureAwait(false);
+                if (moodles is not null)
+                {
+                    DbContext.Moodles.Remove(moodles);
+                }
+            }
+            else if (dto.Action == MoodlesAction.Download)
+            {
+                var data =await DbContext.Moodles.AsNoTracking().ToListAsync().ConfigureAwait(false);
+                var json = JsonSerializer.Serialize(data);
+                await Clients.User(dto.User.UID).Client_MoodlesShare(new MoodlesDto(dto.User, MoodlesAction.Download, json)).ConfigureAwait(false);
+            }
+        }
+        catch (Exception e)
+        {
+            _logger.LogCallWarning(MareHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, dto.User.UID, Context.ConnectionId, e.Message));
+        }
     }
 }
