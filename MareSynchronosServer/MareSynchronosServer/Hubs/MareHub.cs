@@ -245,13 +245,18 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
                 var json = JsonSerializer.Deserialize<Moodles>(dto.Statuses);
                 json.UserUID = dto.User.UID;
                 json.User = await DbContext.Users.FindAsync(dto.User.UID).ConfigureAwait(false);
-                var moodles = await DbContext.Moodles.FirstOrDefaultAsync(x => x.UserUID == dto.User.UID && x.GUID == json.GUID).ConfigureAwait(false);
+                var moodles = await DbContext.Moodles.FirstOrDefaultAsync(x => x.GUID == json.GUID).ConfigureAwait(false);
                 if (moodles is null)
                 {
                     DbContext.Moodles.Add(json);
                 }
                 else
                 {
+                    if (moodles.UserUID != dto.User.UID)
+                    {
+                        throw new Exception(
+                            $"User {dto.User.UID} tried to update moodles {moodles.GUID} owned by {moodles.User.UID}");
+                    }
                     DbContext.Entry(moodles).CurrentValues.SetValues(json);
                 }
                 DbContext.SaveChanges();
