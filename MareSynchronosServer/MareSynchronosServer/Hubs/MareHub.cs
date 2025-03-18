@@ -248,8 +248,10 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
                 {
                     moodles = new Moodles();
                     moodles.UserUID = dto.User.UID;
+                    DbContext.Moodles.Add(moodles);
                 }
                 moodles = json;
+                moodles.User = await DbContext.Users.FindAsync(dto.User.UID).ConfigureAwait(false);
                 DbContext.SaveChanges();
             }
             else if (dto.Action == MoodlesAction.Remove)
@@ -260,6 +262,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
                 {
                     DbContext.Moodles.Remove(moodles);
                 }
+                DbContext.SaveChanges();
             }
             else if (dto.Action == MoodlesAction.Download)
             {

@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 namespace MareSynchronosShared.Models;
-
+[Serializable]
 public class Moodles
 {
     public enum StatusType
