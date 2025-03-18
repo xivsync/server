@@ -237,6 +237,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
     [Authorize(Policy = "Identified")]
     public async Task MoodlesShare(MoodlesDto dto)
     {
+        _logger.LogCallWarning(MareHubLogger.Args(dto.Action, dto.Statuses));
         try
         {
             if (dto.Action == MoodlesAction.UpLoad)
