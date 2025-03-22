@@ -403,14 +403,13 @@ public class MareModule : InteractionModuleBase
 
         using var scope = _services.CreateScope();
         using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
-
         var user = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
         if (!string.IsNullOrEmpty(user.PrimaryUserUID))
         {
             var primaryId = user.PrimaryUserUID;
             user = await dbContext.Auth.SingleAsync(u => u.UserUID == primaryId).ConfigureAwait(false);
         }
-        if (user.MarkForBan)
+        if (user.MarkForBan || user.IsBanned)
         {
             await RespondAsync("错误，用户已被封禁", ephemeral:true).ConfigureAwait(false);
             return;
@@ -450,6 +449,60 @@ public class MareModule : InteractionModuleBase
         if (!string.IsNullOrEmpty(reason)) text += $", 封禁原因: `{reason}`";
         await RespondAsync(text, ephemeral:false).ConfigureAwait(false);
         _logger.LogInformation($"Admin {Context.Interaction.User.Username} banned {uid}");
+
+    }
+
+    [SlashCommand("unbanuser", "解封用户")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+        public async Task BanUser([Summary("uid", "用户uid")] string uid)
+    {
+
+        using var scope = _services.CreateScope();
+        using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
+
+        var user = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(user.PrimaryUserUID))
+        {
+            var primaryId = user.PrimaryUserUID;
+            user = await dbContext.Auth.SingleAsync(u => u.UserUID == primaryId).ConfigureAwait(false);
+        }
+        if (!user.MarkForBan && !user.IsBanned)
+        {
+            await RespondAsync("错误，用户未被封禁", ephemeral:true).ConfigureAwait(false);
+            return;
+        }
+        user.MarkForBan = false;
+        user.IsBanned = false;
+        var lodeStoneAuth = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == user.UserUID || u.User.UID == user.PrimaryUserUID).ConfigureAwait(false);
+        if (lodeStoneAuth != null)
+        {
+            dbContext.BannedRegistrations.Remove(new BannedRegistrations
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId,
+            });
+            dbContext.BannedRegistrations.Remove(new BannedRegistrations
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString(),
+            });
+        }
+
+        //添加所有主UID下的CharaId
+        if (user.CharaIds is not null)
+        {
+            foreach (var id in user.CharaIds)
+            {
+                var bannedusers = dbContext.BannedUsers.FirstOrDefault(c => c.CharacterIdentification == id);
+                if (bannedusers != null)
+                {
+                    dbContext.BannedUsers.Remove(bannedusers);
+                }
+            }
+        }
+
+        await dbContext.SaveChangesAsync().ConfigureAwait(false);
+        var text = $"已解除用户 `{uid}` 的封禁";
+        await RespondAsync(text, ephemeral:true).ConfigureAwait(false);
+        _logger.LogInformation($"Admin {Context.Interaction.User.Username} unbanned {uid}");
 
     }
 
