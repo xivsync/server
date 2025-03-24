@@ -157,9 +157,10 @@ internal class DiscordBot : IHostedService
                 builder.AddField("决议", $"举报被管理员 <@{userId}> 撤销, 举报人被封禁");
                 builder.WithColor(Color.DarkGreen);
                 profile.FlaggedForReport = false;
-                var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
+                var uid = dbContext.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.PrimaryUserUID == split[2]).Result.UserUID ?? split[2];
+                var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
                 reportingUser.MarkForBan = true;
-                var regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
+                var regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID).ConfigureAwait(false);
                 BanAuth(dbContext, regReporting);
                 await SendMessageToClients("一个针对你的举报已被撤销.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
@@ -184,12 +185,13 @@ internal class DiscordBot : IHostedService
             case "banuser":
                 builder.AddField("决议", $"用户被管理员 <@{userId}> 封禁");
                 builder.WithColor(Color.DarkRed);
-                var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+                uid = dbContext.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.PrimaryUserUID == split[1]).Result.UserUID ?? split[1];
+                var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
                 offendingUser.MarkForBan = true;
                 profile.Base64ProfileImage = null;
                 profile.UserDescription = null;
                 profile.ProfileDisabled = true;
-                var reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
+                var reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID).ConfigureAwait(false);
                 BanAuth(dbContext, reg);
                 await SendMessageToClients("因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
@@ -199,18 +201,20 @@ internal class DiscordBot : IHostedService
             case "banboth":
                 builder.AddField("决议", $"双方用户均被管理员 <@{userId}> 封禁");
                 builder.WithColor(Color.DarkRed);
-                offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+                uid = dbContext.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.PrimaryUserUID == split[1]).Result.UserUID ?? split[1];
+                offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
                 offendingUser.MarkForBan = true;
                 profile.Base64ProfileImage = null;
                 profile.UserDescription = null;
                 profile.ProfileDisabled = true;
-                reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
+                reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID).ConfigureAwait(false);
                 BanAuth(dbContext, reg);
 
                 profile.FlaggedForReport = false;
-                reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
+                uid = dbContext.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.PrimaryUserUID == split[2]).Result.UserUID ?? split[2];
+                reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == uid).ConfigureAwait(false);
                 reportingUser.MarkForBan = true;
-                regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
+                regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID).ConfigureAwait(false);
                 BanAuth(dbContext, regReporting);
                 break;
         }
@@ -230,14 +234,20 @@ internal class DiscordBot : IHostedService
 
     private void BanAuth(MareDbContext dbContext, LodeStoneAuth lodeStoneAuth)
     {
-        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+        if (!dbContext.BannedRegistrations.Any(x => x.DiscordIdOrLodestoneAuth == lodeStoneAuth.HashedLodestoneId))
         {
-            DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
-        });
-        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
+            });
+        }
+        if (!dbContext.BannedRegistrations.Any(x => x.DiscordIdOrLodestoneAuth == lodeStoneAuth.DiscordId.ToString()))
         {
-            DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
-        });
+            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
+            });
+        }
     }
 
     private async Task DiscordClient_Ready()
