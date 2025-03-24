@@ -230,14 +230,20 @@ internal class DiscordBot : IHostedService
 
     private void BanAuth(MareDbContext dbContext, LodeStoneAuth lodeStoneAuth)
     {
-        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+        if (!dbContext.BannedRegistrations.Any(x => x.DiscordIdOrLodestoneAuth == lodeStoneAuth.HashedLodestoneId))
         {
-            DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
-        });
-        dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
+            });
+        }
+        if (!dbContext.BannedRegistrations.Any(x => x.DiscordIdOrLodestoneAuth == lodeStoneAuth.DiscordId.ToString()))
         {
-            DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
-        });
+            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
+            });
+        }
     }
 
     private async Task DiscordClient_Ready()
