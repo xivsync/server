@@ -11,4 +11,5 @@ public static class MareClaimTypes
     public const string DiscordUser = "discord_user";
     public const string DiscordId = "discord_user_id";
     public const string OAuthLoginToken = "oauth_login_token";
+    public const string NameWithWorld = "name_with_world";
 }

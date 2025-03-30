@@ -41,7 +41,7 @@ public abstract class AuthControllerBase : Controller
         Configuration = configuration;
     }
 
-    protected async Task<IActionResult> GenericAuthResponse(MareDbContext dbContext, string charaIdent, SecretKeyAuthReply authResult, string? machineId = null)
+    protected async Task<IActionResult> GenericAuthResponse(MareDbContext dbContext, string charaIdent, SecretKeyAuthReply authResult, string nameWithWorld = "", string? machineId = null)
     {
         if (await IsIdentBanned(dbContext, charaIdent))
         {
@@ -87,7 +87,7 @@ public abstract class AuthControllerBase : Controller
         }
 
         Logger.LogInformation("Authenticate:SUCCESS:{id}:{ident}", authResult.Uid, charaIdent);
-        return await CreateJwtFromId(authResult.Uid!, charaIdent, authResult.Alias ?? string.Empty);
+        return await CreateJwtFromId(authResult.Uid!, charaIdent, authResult.Alias ?? string.Empty, nameWithWorld);
     }
 
     protected JwtSecurityToken CreateJwt(IEnumerable<Claim> authClaims)
@@ -105,7 +105,7 @@ public abstract class AuthControllerBase : Controller
         return handler.CreateJwtSecurityToken(token);
     }
 
-    protected async Task<IActionResult> CreateJwtFromId(string uid, string charaIdent, string alias)
+    protected async Task<IActionResult> CreateJwtFromId(string uid, string charaIdent, string alias, string nameWithWorld)
     {
         var token = CreateJwt(new List<Claim>()
         {
@@ -113,7 +113,8 @@ public abstract class AuthControllerBase : Controller
             new Claim(MareClaimTypes.CharaIdent, charaIdent),
             new Claim(MareClaimTypes.Alias, alias),
             new Claim(MareClaimTypes.Expires, DateTime.UtcNow.AddHours(6).Ticks.ToString(CultureInfo.InvariantCulture)),
-            new Claim(MareClaimTypes.Continent, await _geoIPProvider.GetCountryFromIP(HttpAccessor))
+            new Claim(MareClaimTypes.Continent, await _geoIPProvider.GetCountryFromIP(HttpAccessor)),
+            new Claim(MareClaimTypes.NameWithWorld, nameWithWorld)
         });
 
         return Content(token.RawData);

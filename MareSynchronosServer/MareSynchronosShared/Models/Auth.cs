@@ -20,6 +20,8 @@ public class Auth
     
     [Column(TypeName = "jsonb")] 
     public List<string>? CharaIds { get; set; } = [];
+
+    public string? NameWithWorld { get; set; }
     
     public string? PrimaryUserUID { get; set; }
     public User? PrimaryUser { get; set; }

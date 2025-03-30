@@ -36,7 +36,8 @@ public class MareModule : InteractionModuleBase
     public async Task UserInfo([Summary("secondary_uid", "（可选）您的辅助UID")] string? secondaryUid = null,
         [Summary("discord_user", "仅限管理员：要检查的 Discord 用户")] IUser? discordUser = null,
         [Summary("uid", "仅限管理员：要检查的 UID")] string? uid = null,
-        [Summary("lodestone", "仅限管理员：要检查的LodeStone账户")] string? lodestone = null)
+        [Summary("lodestone", "仅限管理员：要检查的LodeStone账户")] string? lodestone = null,
+        [Summary("name_with_world", "仅限管理员：要检查的用户")]string? nameWithWorld = null)
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}",
             Context.Interaction.User.Id, nameof(UserInfo));
@@ -45,7 +46,7 @@ public class MareModule : InteractionModuleBase
         {
             EmbedBuilder eb = new();
 
-            eb = await HandleUserInfo(eb, Context.User.Id, secondaryUid, discordUser?.Id ?? null, uid, lodestone);
+            eb = await HandleUserInfo(eb, Context.User.Id, secondaryUid, discordUser?.Id ?? null, uid, lodestone, nameWithWorld);
 
             await RespondAsync(embeds: new[] { eb.Build() }, ephemeral: true).ConfigureAwait(false);
         }
@@ -255,7 +256,7 @@ public class MareModule : InteractionModuleBase
         return embed.Build();
     }
 
-    private async Task<EmbedBuilder> HandleUserInfo(EmbedBuilder eb, ulong id, string? secondaryUserUid = null, ulong? optionalUser = null, string? uid = null, string? lodestoneId = null)
+    private async Task<EmbedBuilder> HandleUserInfo(EmbedBuilder eb, ulong id, string? secondaryUserUid = null, ulong? optionalUser = null, string? uid = null, string? lodestoneId = null, string? nameWithWorld = null)
     {
         bool showForSecondaryUser = secondaryUserUid != null;
         using var scope = _services.CreateScope();
@@ -274,13 +275,13 @@ public class MareModule : InteractionModuleBase
 
         bool isAdminCall = primaryUser.User.IsModerator || primaryUser.User.IsAdmin;
 
-        if ((optionalUser != null || uid != null || lodestoneId != null) && !isAdminCall)
+        if ((optionalUser != null || uid != null || lodestoneId != null || nameWithWorld != null) && !isAdminCall)
         {
             eb.WithTitle("权限不足");
             eb.WithDescription("只有管理员可以查看其它用户的信息");
             return eb;
         }
-        else if ((optionalUser != null || uid != null || lodestoneId != null) && isAdminCall)
+        else if ((optionalUser != null || uid != null || lodestoneId != null || nameWithWorld != null) && isAdminCall)
         {
             LodeStoneAuth userInDb = null;
             if (optionalUser != null)
@@ -295,6 +296,12 @@ public class MareModule : InteractionModuleBase
             else if (lodestoneId != null)
             {
                 userInDb = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.HashedLodestoneId == StringUtils.Sha256String(lodestoneId)).ConfigureAwait(false);
+            }
+            else if (nameWithWorld != null)
+            {
+                 var user = await db.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.NameWithWorld.Equals(StringUtils.Sha256String(nameWithWorld), StringComparison.OrdinalIgnoreCase)).ConfigureAwait(false);
+                 var targetUid = user.PrimaryUserUID ?? user.UserUID;
+                 userInDb = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == targetUid).ConfigureAwait(false);
             }
 
             if (userInDb == null)
@@ -390,6 +397,11 @@ public class MareModule : InteractionModuleBase
         if (isAdminCall && !string.IsNullOrEmpty(lodestoneUser.HashedLodestoneId))
         {
             eb.AddField("LodeStone识别码", lodestoneUser.HashedLodestoneId);
+        }
+
+        if (isAdminCall && !string.IsNullOrEmpty(nameWithWorld))
+        {
+            eb.AddField($"查找`{nameWithWorld}`", auth.NameWithWorld);
         }
 
         return eb;

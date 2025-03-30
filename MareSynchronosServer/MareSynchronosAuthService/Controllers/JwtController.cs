@@ -58,7 +58,8 @@ public class JwtController : AuthControllerBase
             }
 
             Logger.LogInformation("RenewToken:SUCCESS:{id}:{ident}", uid, ident);
-            return await CreateJwtFromId(uid, ident, alias);
+            throw new Exception("RenewToken:Auth is not allowed on this server.");
+            //return await CreateJwtFromId(uid, ident, alias);
         }
         catch (Exception ex)
         {
