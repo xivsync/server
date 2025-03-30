@@ -290,7 +290,7 @@ public class MareModule : InteractionModuleBase
             }
             else if (uid != null)
             {
-                var primary = (await db.Auth.SingleOrDefaultAsync(u => u.UserUID == uid && u.PrimaryUserUID != null))?.PrimaryUserUID ?? uid;//确认是否为子账号，如果是，查找主账号DC信息
+                var primary = (await db.Auth.SingleOrDefaultAsync(u => (u.UserUID == uid || u.User.Alias == uid) && u.PrimaryUserUID != null))?.PrimaryUserUID ?? uid;//确认是否为子账号，如果是，查找主账号DC信息
                 userInDb = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == primary || u.User.Alias == primary).ConfigureAwait(false);
             }
             else if (lodestoneId != null)
@@ -327,10 +327,10 @@ public class MareModule : InteractionModuleBase
             }
         }
 
-        var secondaryCheck = isAdminCall && uid != null && uid != dbUser?.UID;//查找的UID为子账号
+        var secondaryCheck = isAdminCall && uid != null && uid != dbUser?.UID && uid != dbUser.Alias;//查找的UID为子账号
         if (secondaryCheck)
         {
-            dbUser = (await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == uid))?.User;//显示子账号信息
+            dbUser = (await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == uid || u.User.Alias == uid))?.User;//显示子账号信息
         }
         
         var auth = await db.Auth.Include(u => u.PrimaryUser).SingleOrDefaultAsync(u => u.UserUID == dbUser.UID).ConfigureAwait(false);
