@@ -382,7 +382,7 @@ public class MareModule : InteractionModuleBase
 
         if (isAdminCall && !string.IsNullOrEmpty(identity))
         {
-            eb.AddField("在线角色ID", identity);
+            eb.AddField("在线角色ID", identity.ToString().Trim('"'));
         }
         
         if (isAdminCall && auth.CharaIds is not null)
