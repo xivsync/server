@@ -299,7 +299,7 @@ public class MareModule : InteractionModuleBase
             }
             else if (nameWithWorld != null)
             {
-                 var user = await db.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.NameWithWorld.Equals(StringUtils.Sha256String(nameWithWorld), StringComparison.OrdinalIgnoreCase)).ConfigureAwait(false);
+                 var user = await db.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.NameWithWorld == StringUtils.Sha256String(nameWithWorld)).ConfigureAwait(false);
                  var targetUid = user.PrimaryUserUID ?? user.UserUID;
                  userInDb = await db.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == targetUid).ConfigureAwait(false);
             }
