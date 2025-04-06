@@ -223,7 +223,7 @@ public class MareModule : InteractionModuleBase
 
         var group = await db.Groups.AsNoTracking().FirstOrDefaultAsync(x => x.Alias == gidoralias || x.GID == gidoralias)
             .ConfigureAwait(false);
-        if (group == null || group.InvitesEnabled)
+        if (group == null || !group.InvitesEnabled)
         {
             await RespondAsync($"未找到名为 {gidoralias} 的同步贝或未开放邀请.", ephemeral:true).ConfigureAwait(false);
             return;
