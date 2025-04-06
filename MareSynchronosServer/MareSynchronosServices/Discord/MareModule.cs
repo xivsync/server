@@ -211,6 +211,58 @@ public class MareModule : InteractionModuleBase
         }
     }
 
+    [SlashCommand("getinvite", "获取一个针对特定贝的邀请码")]
+    public async Task GetInvitePassword([Summary("gid", "贝GID/个性GID")] string gidoralias)
+    {
+        _logger.LogInformation("SlashCommand:{userId}:{Method}:{gid}", Context.Interaction.User.Id, nameof(GetInvitePassword), gidoralias);
+
+        using var scope = _services.CreateScope();
+        using var db = scope.ServiceProvider.GetService<MareDbContext>();
+
+        var lodeStoneAuth = await db.LodeStoneAuth.AsNoTracking().Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false);
+
+        var group = await db.Groups.AsNoTracking().FirstOrDefaultAsync(x => x.Alias == gidoralias || x.GID == gidoralias)
+            .ConfigureAwait(false);
+        if (group == null || group.InvitesEnabled)
+        {
+            await RespondAsync($"未找到名为 {gidoralias} 的同步贝或未开放邀请.", ephemeral:true).ConfigureAwait(false);
+            return;
+        }
+
+        if (lodeStoneAuth.User.UID == group.OwnerUID || await db.GroupPairs
+                .AnyAsync(x => x.GroupGID == group.GID && x.GroupUser.UID == lodeStoneAuth.User.UID && x.IsModerator)
+                .ConfigureAwait(false))
+        {
+            var existingInvites = await db.GroupTempInvites.Where(g => g.GroupGID == group.GID).ToListAsync().ConfigureAwait(false);
+
+                bool hasValidInvite = false;
+                string invite = string.Empty;
+                string hashedInvite = string.Empty;
+                while (!hasValidInvite)
+                {
+                    invite = StringUtils.GenerateRandomString(10, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+                    hashedInvite = StringUtils.Sha256String(invite);
+                    if (existingInvites.Any(i => string.Equals(i.Invite, hashedInvite, StringComparison.Ordinal))) continue;
+                    hasValidInvite = true;
+                }
+
+                var GroupTempInvite = new GroupTempInvite()
+                {
+                    ExpirationDate = DateTime.UtcNow.AddDays(1),
+                    GroupGID = group.GID,
+                    Invite = hashedInvite,
+                };
+
+                db.GroupTempInvites.Add(GroupTempInvite);
+                await db.SaveChangesAsync().ConfigureAwait(false);
+                await RespondAsync($"以下是同步贝 `{gidoralias}` 的邀请码, 有效时间24小时: `{invite}` ").ConfigureAwait(false);
+        }
+        else
+        {
+            await RespondAsync("没有足够的权限,请检查输入是否有误.", ephemeral: true).ConfigureAwait(false);
+        }
+    }
+
     public async Task<Embed> HandleUserAdd(string desiredUid, ulong discordUserId)
     {
         var embed = new EmbedBuilder();
