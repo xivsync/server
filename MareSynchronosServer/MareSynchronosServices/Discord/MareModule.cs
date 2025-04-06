@@ -255,7 +255,7 @@ public class MareModule : InteractionModuleBase
 
                 db.GroupTempInvites.Add(GroupTempInvite);
                 await db.SaveChangesAsync().ConfigureAwait(false);
-                await RespondAsync($"以下是同步贝 `{gidoralias}` 的邀请码, 有效时间24小时: `{invite}` ").ConfigureAwait(false);
+                await RespondAsync($"以下是同步贝 `{gidoralias}` 的邀请码, 有效时间24小时: `{invite}` ", ephemeral: true).ConfigureAwait(false);
         }
         else
         {
