@@ -103,6 +103,7 @@ public class Startup
             services.AddHostedService(provider => provider.GetService<UserCleanupService>());
             services.AddSingleton<CharaDataCleanupService>();
             services.AddHostedService(provider => provider.GetService<CharaDataCleanupService>());
+            services.AddHostedService<ClientPairPermissionsCleanupService>();
         }
 
         services.AddSingleton<GPoseLobbyDistributionService>();
@@ -112,6 +113,7 @@ public class Startup
     private static void ConfigureSignalR(IServiceCollection services, IConfigurationSection mareConfig)
     {
         services.AddSingleton<IUserIdProvider, IdBasedUserIdProvider>();
+        services.AddSingleton<ConcurrencyFilter>();
 
         var signalRServiceBuilder = services.AddSignalR(hubOptions =>
         {
@@ -121,6 +123,7 @@ public class Startup
             hubOptions.StreamBufferCapacity = 200;
 
             hubOptions.AddFilter<SignalRLimitFilter>();
+            hubOptions.AddFilter<ConcurrencyFilter>();
         }).AddMessagePackProtocol(opt =>
         {
             var resolver = CompositeResolver.Create(StandardResolverAllowPrivate.Instance,
@@ -299,7 +302,8 @@ public class Startup
             MetricsAPI.GaugeUserPairCacheEntries,
             MetricsAPI.GaugeUserPairCacheUsers,
             MetricsAPI.GaugeGposeLobbies,
-            MetricsAPI.GaugeGposeLobbyUsers
+            MetricsAPI.GaugeGposeLobbyUsers,
+            MetricsAPI.GaugeHubConcurrency
         }));
     }
 

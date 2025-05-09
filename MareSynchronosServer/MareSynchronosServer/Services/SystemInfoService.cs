@@ -11,46 +11,37 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace MareSynchronosServer.Services;
 
-public sealed class SystemInfoService : IHostedService, IDisposable
+public sealed class SystemInfoService : BackgroundService
 {
     private readonly MareMetrics _mareMetrics;
     private readonly IConfigurationService<ServerConfiguration> _config;
-    private readonly IServiceProvider _services;
+    private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
     private readonly ILogger<SystemInfoService> _logger;
     private readonly IHubContext<MareHub, IMareHub> _hubContext;
     private readonly IRedisDatabase _redis;
-    private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
-    private Timer _timer;
-    private Timer _timer2;
     public SupporterDto SupportersDto = new([]);
     public SystemInfoDto SystemInfoDto { get; private set; } = new();
 
-    public SystemInfoService(MareMetrics mareMetrics, IConfigurationService<ServerConfiguration> configurationService, IServiceProvider services,
-        ILogger<SystemInfoService> logger, IHubContext<MareHub, IMareHub> hubContext, IRedisDatabase redisDb, IDbContextFactory<MareDbContext> dbContextFactory)
+    public SystemInfoService(MareMetrics mareMetrics, IConfigurationService<ServerConfiguration> configurationService, IDbContextFactory<MareDbContext> dbContextFactory,
+        ILogger<SystemInfoService> logger, IHubContext<MareHub, IMareHub> hubContext, IRedisDatabase redisDb)
     {
         _mareMetrics = mareMetrics;
         _config = configurationService;
-        _services = services;
+        _dbContextFactory = dbContextFactory;
         _logger = logger;
         _hubContext = hubContext;
         _redis = redisDb;
-        _dbContextFactory = dbContextFactory;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
+        await base.StartAsync(cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("System Info Service started");
-
-        var timeOut = _config.IsMain ? 5 : 15;
-
-        _timer = new Timer(PushSystemInfo, null, TimeSpan.Zero, TimeSpan.FromSeconds(timeOut));
-        _timer2 = new Timer(UpdateSupporters, null, TimeSpan.Zero, TimeSpan.FromSeconds(60));
-
-        return Task.CompletedTask;
     }
 
-    private void UpdateSupporters(object state)
+    private override async Task UpdateSupporters(CancellationToken ct)
     {
+        while (!ct.IsCancellationRequested){
         try
         {
             using var db = _dbContextFactory.CreateDbContext();
@@ -72,68 +63,64 @@ public sealed class SystemInfoService : IHostedService, IDisposable
 
             combinedQuery.Sort(StringComparer.OrdinalIgnoreCase);
 
-            if (combinedQuery.SequenceEqual(SupportersDto.Supporters, StringComparer.OrdinalIgnoreCase)) return;
+            if (!combinedQuery.SequenceEqual(SupportersDto.Supporters, StringComparer.OrdinalIgnoreCase)) 
+            {
+                SupportersDto = new SupporterDto(combinedQuery);
+                _ = _hubContext.Clients.All.Client_UpdateSupporterList(SupportersDto).ConfigureAwait(false);
+                _logger.LogWarning("Updated Supporter list, count {count}", SupportersDto.Supporters.Count);
+            }
 
-            SupportersDto = new SupporterDto(combinedQuery);
-            _ = _hubContext.Clients.All.Client_UpdateSupporterList(SupportersDto).ConfigureAwait(false);
-            _logger.LogWarning("Updated Supporter list, count {count}", SupportersDto.Supporters.Count);
+            await Task.Delay(TimeSpan.FromSeconds(60), ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to update supporter info");
         }
+        }
+        
     }
 
-    private void PushSystemInfo(object state)
+    protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        try
+        var timeOut = _config.IsMain ? 15 : 30;
+
+        while (!ct.IsCancellationRequested)
         {
-            ThreadPool.GetAvailableThreads(out int workerThreads, out int ioThreads);
-
-            _mareMetrics.SetGaugeTo(MetricsAPI.GaugeAvailableWorkerThreads, workerThreads);
-            _mareMetrics.SetGaugeTo(MetricsAPI.GaugeAvailableIOWorkerThreads, ioThreads);
-
-            var onlineUsers = (_redis.SearchKeysAsync("UID:*").GetAwaiter().GetResult()).Count();
-            SystemInfoDto = new SystemInfoDto()
+            try
             {
-                OnlineUsers = onlineUsers,
-            };
+                ThreadPool.GetAvailableThreads(out int workerThreads, out int ioThreads);
 
-            if (_config.IsMain)
+                _mareMetrics.SetGaugeTo(MetricsAPI.GaugeAvailableWorkerThreads, workerThreads);
+                _mareMetrics.SetGaugeTo(MetricsAPI.GaugeAvailableIOWorkerThreads, ioThreads);
+
+                var onlineUsers = (_redis.SearchKeysAsync("UID:*").GetAwaiter().GetResult()).Count();
+                SystemInfoDto = new SystemInfoDto()
+                {
+                    OnlineUsers = onlineUsers,
+                };
+
+                if (_config.IsMain)
+                {
+                    _logger.LogInformation("Sending System Info, Online Users: {onlineUsers}", onlineUsers);
+
+                    await _hubContext.Clients.All.Client_UpdateSystemInfo(SystemInfoDto).ConfigureAwait(false);
+
+                    using var db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
+
+                    _mareMetrics.SetGaugeTo(MetricsAPI.GaugeAuthorizedConnections, onlineUsers);
+                    _mareMetrics.SetGaugeTo(MetricsAPI.GaugePairs, db.ClientPairs.AsNoTracking().Count());
+                    _mareMetrics.SetGaugeTo(MetricsAPI.GaugePairsPaused, db.Permissions.AsNoTracking().Where(p => p.IsPaused).Count());
+                    _mareMetrics.SetGaugeTo(MetricsAPI.GaugeGroups, db.Groups.AsNoTracking().Count());
+                    _mareMetrics.SetGaugeTo(MetricsAPI.GaugeGroupPairs, db.GroupPairs.AsNoTracking().Count());
+                    _mareMetrics.SetGaugeTo(MetricsAPI.GaugeUsersRegistered, db.Users.AsNoTracking().Count());
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(timeOut), ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
             {
-                _logger.LogInformation("Sending System Info, Online Users: {onlineUsers}", onlineUsers);
-
-                _hubContext.Clients.All.Client_UpdateSystemInfo(SystemInfoDto);
-
-                using var scope = _services.CreateScope();
-                using var db = scope.ServiceProvider.GetService<MareDbContext>()!;
-
-                _mareMetrics.SetGaugeTo(MetricsAPI.GaugeAuthorizedConnections, onlineUsers);
-                _mareMetrics.SetGaugeTo(MetricsAPI.GaugePairs, db.ClientPairs.AsNoTracking().Count());
-                _mareMetrics.SetGaugeTo(MetricsAPI.GaugePairsPaused, db.Permissions.AsNoTracking().Count(p => p.IsPaused));
-                _mareMetrics.SetGaugeTo(MetricsAPI.GaugeGroups, db.Groups.AsNoTracking().Count());
-                _mareMetrics.SetGaugeTo(MetricsAPI.GaugeGroupPairs, db.GroupPairs.AsNoTracking().Count());
-                _mareMetrics.SetGaugeTo(MetricsAPI.GaugeUsersRegistered, db.Users.AsNoTracking().Count());
+                _logger.LogWarning(ex, "Failed to push system info");
             }
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to push system info");
-        }
-    }
-
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _timer?.Change(Timeout.Infinite, 0);
-        _timer2?.Change(Timeout.Infinite, 0);
-
-        return Task.CompletedTask;
-    }
-
-    public void Dispose()
-    {
-        _timer?.Dispose();
-        _timer2?.Dispose();
     }
 }
