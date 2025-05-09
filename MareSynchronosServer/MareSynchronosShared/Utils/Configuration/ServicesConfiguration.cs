@@ -15,6 +15,7 @@ public class ServicesConfiguration : MareConfigurationBase
     public bool KickNonRegisteredUsers { get; set; } = false;
     public Uri MainServerAddress { get; set; } = null;
     public Dictionary<ulong, string> VanityRoles { get; set; } = new Dictionary<ulong, string>();
+
     public ulong? Supporter { get; set; } = null;
 
     public override string ToString()

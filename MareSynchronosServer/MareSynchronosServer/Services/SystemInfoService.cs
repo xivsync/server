@@ -36,46 +36,47 @@ public sealed class SystemInfoService : BackgroundService
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         await base.StartAsync(cancellationToken).ConfigureAwait(false);
+        _ = UpdateSupporters(cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("System Info Service started");
     }
 
-    private override async Task UpdateSupporters(CancellationToken ct)
+    private async Task UpdateSupporters(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested){
-        try
-        {
-            using var db = _dbContextFactory.CreateDbContext();
-
-            var combinedQuery =
-                (from support in db.Supports.AsNoTracking()
-                    where support.ExpiresAt > DateTime.UtcNow
-                    select support.UserUID)
-                .Union(
-                    from auth in db.Auth.AsNoTracking()
-                    where db.Supports.AsNoTracking()
-                        .Where(s => s.ExpiresAt > DateTime.UtcNow)
-                        .Select(s => s.UserUID)
-                        .Contains(auth.PrimaryUserUID)
-                    select auth.User.UID
-                )
-                .Distinct()
-                .ToList();
-
-            combinedQuery.Sort(StringComparer.OrdinalIgnoreCase);
-
-            if (!combinedQuery.SequenceEqual(SupportersDto.Supporters, StringComparer.OrdinalIgnoreCase)) 
+            try
             {
-                SupportersDto = new SupporterDto(combinedQuery);
-                _ = _hubContext.Clients.All.Client_UpdateSupporterList(SupportersDto).ConfigureAwait(false);
-                _logger.LogWarning("Updated Supporter list, count {count}", SupportersDto.Supporters.Count);
-            }
+                using var db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
-            await Task.Delay(TimeSpan.FromSeconds(60), ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to update supporter info");
-        }
+                var combinedQuery =
+                    (from support in db.Supports.AsNoTracking()
+                        where support.ExpiresAt > DateTime.UtcNow
+                        select support.UserUID)
+                    .Union(
+                        from auth in db.Auth.AsNoTracking()
+                        where db.Supports.AsNoTracking()
+                            .Where(s => s.ExpiresAt > DateTime.UtcNow)
+                            .Select(s => s.UserUID)
+                            .Contains(auth.PrimaryUserUID)
+                        select auth.User.UID
+                    )
+                    .Distinct()
+                    .ToList();
+
+                combinedQuery.Sort(StringComparer.OrdinalIgnoreCase);
+
+                if (!combinedQuery.SequenceEqual(SupportersDto.Supporters, StringComparer.OrdinalIgnoreCase))
+                {
+                    SupportersDto = new SupporterDto(combinedQuery);
+                    _ = _hubContext.Clients.All.Client_UpdateSupporterList(SupportersDto).ConfigureAwait(false);
+                    _logger.LogWarning("Updated Supporter list, count {count}", SupportersDto.Supporters.Count);
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(60), ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update supporter info");
+            }
         }
         
     }
