@@ -521,7 +521,7 @@ public class MareModule : InteractionModuleBase
 
     [SlashCommand("unbanuser", "解封用户")]
     [RequireUserPermission(GuildPermission.Administrator)]
-        public async Task BanUser([Summary("uid", "用户uid")] string uid)
+        public async Task UnBanUser([Summary("uid", "用户uid")] string uid)
     {
 
         using var scope = _services.CreateScope();
@@ -553,7 +553,7 @@ public class MareModule : InteractionModuleBase
             });
         }
 
-        //添加所有主UID下的CharaId
+        //移除所有主UID下的CharaId
         if (user.CharaIds is not null)
         {
             foreach (var id in user.CharaIds)
@@ -570,6 +570,112 @@ public class MareModule : InteractionModuleBase
         var text = $"已解除用户 `{uid}` 的封禁";
         await RespondAsync(text, ephemeral:true).ConfigureAwait(false);
         _logger.LogInformation($"Admin {Context.Interaction.User.Username} unbanned {uid}");
+
+    }
+
+    [RequireUserPermission(GuildPermission.Administrator)]
+    [SlashCommand("warnuser", "仅限管理员：警告用户")]
+    public async Task WarnUser([Summary("uid", "用户 UID")] string? desiredUid,
+        [Summary("discord_user", "用户 Discord")] IUser? desiredDCAccount,
+        [Summary("reason", "警告理由")] string reason)
+    {
+        try
+        {
+            using var scope = _services.CreateScope();
+            using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
+
+            var roleId = _mareServicesConfiguration.GetValueOrDefault<ulong>(nameof(ServicesConfiguration.WarningRole), 1329441701487575070);
+
+            if (await Context.Guild.GetRoleAsync(roleId).ConfigureAwait(false) is null)
+            {
+                await RespondAsync($"未查找到 <{roleId}> 对应角色组, 请检查后再试.", ephemeral:true).ConfigureAwait(false);
+                return;
+            }
+
+            if ((string.IsNullOrEmpty(desiredUid) && desiredDCAccount is null) || (!string.IsNullOrEmpty(desiredUid) && desiredDCAccount is not null))
+            {
+                await RespondAsync("UID 和 Discord 账户应有一不为空, 请检查后再试.", ephemeral:true).ConfigureAwait(false);
+                return;
+            }
+
+            ulong dcid = 0;
+
+            if (desiredUid != null)
+            {
+                var auth = await dbContext.Auth.AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.UserUID == desiredUid || a.PrimaryUserUID == desiredUid)
+                    .ConfigureAwait(false);
+                if (auth is null)
+                {
+                    await RespondAsync("未查找到UID, 请检查后再试.", ephemeral:true).ConfigureAwait(false);
+                    return;
+                }
+
+                var lodeStoneAuth = await dbContext.LodeStoneAuth.AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.User.UID == auth.UserUID).ConfigureAwait(false);
+                if (lodeStoneAuth is null)
+                {
+                    await RespondAsync("未查找到Discord账户对应UID, 请检查后再试.", ephemeral:true).ConfigureAwait(false);
+                    return;
+                }
+
+                dcid = lodeStoneAuth.DiscordId;
+            }
+
+            if (desiredDCAccount != null)
+            {
+                var lodeStoneAuth = await dbContext.LodeStoneAuth.AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.DiscordId == desiredDCAccount.Id).ConfigureAwait(false);
+                if (lodeStoneAuth is null)
+                {
+                    await RespondAsync("未查找到Discord账户对应UID, 请检查后再试.", ephemeral:true).ConfigureAwait(false);
+                    return;
+                }
+
+                dcid = lodeStoneAuth.DiscordId;
+            }
+
+            var discordUser = await Context.Guild.GetUserAsync(dcid).ConfigureAwait(false);
+            if (discordUser is null)
+            {
+                await RespondAsync($"未查找到 <@{dcid}> 账户对应UID, 请检查后再试.", ephemeral:true).ConfigureAwait(false);
+                return;
+            }
+
+            var warned = discordUser.RoleIds.Contains(roleId);
+
+            var reportChannelId = _mareServicesConfiguration.GetValue<ulong?>(nameof(ServicesConfiguration.DiscordChannelForReports));
+            var restChannel = await Context.Guild.GetTextChannelAsync(reportChannelId.Value).ConfigureAwait(false);
+
+            if (!warned) //初次
+            {
+                await discordUser.AddRoleAsync(roleId).ConfigureAwait(false);
+
+                await restChannel.SendMessageAsync($"对用户 <@{dcid}> 进行了警告, 原因: `{reason}`").ConfigureAwait(false);
+                return;
+            }
+            else //二次
+            {
+                var uid = await dbContext.LodeStoneAuth.AsNoTracking().FirstOrDefaultAsync(x => x.DiscordId == dcid)
+                    .ConfigureAwait(false);
+                var userToBanUid = uid?.User?.UID;
+                if (string.IsNullOrEmpty(userToBanUid))
+                {
+                    await RespondAsync("无法获取用户的游戏内UID进行封禁, 请检查数据.", ephemeral: true).ConfigureAwait(false);
+                    return;
+                }
+                await BanUser(userToBanUid, reason).ConfigureAwait(false);
+                await discordUser.RemoveRoleAsync(roleId).ConfigureAwait(false);
+
+                await restChannel.SendMessageAsync($"对用户 <@{dcid}> 进行了警告, 原因: `{reason}`, 由于警告的叠加, 升级为封禁.").ConfigureAwait(false);
+                return;
+            }
+
+        }
+        catch (Exception e)
+        {
+            await RespondAsync(e.Message, ephemeral:true).ConfigureAwait(false);
+        }
 
     }
 

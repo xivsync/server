@@ -37,7 +37,8 @@
         "Jwt": "teststringteststringteststringteststringteststringteststringteststringteststringteststringteststring",
         "RedisConnectionString": "redis,password=secretredispassword",
         "VanityRoles": {"1189814513059500072":"Admin", "1192054279226261535":"Mare CN user"},
-        "Supporter": 1342071766473768991
+        "Supporter": 1342071766473768991,
+        "WarningRole": 1329441701487575070
     },
     "AllowedHosts": "*",
     "Kestrel": {
