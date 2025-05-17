@@ -642,20 +642,40 @@ public class MareModule : InteractionModuleBase
                 return;
             }
 
-            var warned = discordUser.RoleIds.Contains(roleId);
+            var warning = await dbContext.Warnings.FirstOrDefaultAsync(x => x.DiscordId == dcid).ConfigureAwait(false);
 
             var reportChannelId = _mareServicesConfiguration.GetValue<ulong?>(nameof(ServicesConfiguration.DiscordChannelForReports));
             var restChannel = await Context.Guild.GetTextChannelAsync(reportChannelId.Value).ConfigureAwait(false);
 
-            if (!warned) //初次
+            if (warning is null || warning.Time.AddMonths(6) < DateTime.UtcNow) //初次
             {
                 await discordUser.AddRoleAsync(roleId).ConfigureAwait(false);
+                if (warning is null)
+                {
+                    var newWarning = new Warning
+                    {
+                        DiscordId = dcid,
+                        Time = DateTime.UtcNow,
+                        Reason = reason,
+                    };
+                    await dbContext.AddAsync(newWarning).ConfigureAwait(false);
+                }
+                else
+                {
+                    warning.Time = DateTime.UtcNow;
+                    warning.Reason = reason;
+                }
+                await dbContext.SaveChangesAsync().ConfigureAwait(false);
 
                 await restChannel.SendMessageAsync($"对用户 <@{dcid}> 进行了警告, 原因: `{reason}`").ConfigureAwait(false);
                 return;
             }
             else //二次
             {
+                warning.Time = DateTime.UtcNow;
+                warning.Reason = reason;
+                await dbContext.SaveChangesAsync().ConfigureAwait(false);
+
                 var uid = await dbContext.LodeStoneAuth.AsNoTracking().FirstOrDefaultAsync(x => x.DiscordId == dcid)
                     .ConfigureAwait(false);
                 var userToBanUid = uid?.User?.UID;
@@ -665,7 +685,6 @@ public class MareModule : InteractionModuleBase
                     return;
                 }
                 await BanUser(userToBanUid, reason).ConfigureAwait(false);
-                await discordUser.RemoveRoleAsync(roleId).ConfigureAwait(false);
 
                 await restChannel.SendMessageAsync($"对用户 <@{dcid}> 进行了警告, 原因: `{reason}`, 由于警告的叠加, 升级为封禁.").ConfigureAwait(false);
                 return;
