@@ -446,14 +446,14 @@ internal class DiscordBot : IHostedService
                         if (reportedUserLodestone == null)
                         {
                             var reportedPrimary = await dbContext.Auth.SingleOrDefaultAsync(u => u.UserUID == report.ReportedUserUID && !string.IsNullOrEmpty(u.PrimaryUserUID)).ConfigureAwait(false);
-                            reportedUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == reportedPrimary.UserUID).ConfigureAwait(false);
+                            reportedUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == reportedPrimary.PrimaryUserUID).ConfigureAwait(false);
                         }
                         var reportingUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportingUserUID).ConfigureAwait(false);
                         var reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportingUserUID).ConfigureAwait(false);
                         if (reportingUserLodestone == null)
                         {
                             var reportingPrimary = await dbContext.Auth.SingleOrDefaultAsync(u => u.UserUID == report.ReportingUserUID && !string.IsNullOrEmpty(u.PrimaryUserUID)).ConfigureAwait(false);
-                            reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == reportingPrimary.UserUID).ConfigureAwait(false);
+                            reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == reportingPrimary.PrimaryUserUID).ConfigureAwait(false);
                         }
                         var reportedUserProfile = await dbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
                         if (reportedUserProfile is null)
@@ -511,9 +511,9 @@ internal class DiscordBot : IHostedService
                             invitable: true,
                             autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
 
-                        await thread.SendMessageAsync($"请双方 <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> 在72h内提供相关资料供 <@&1301329024680857692> 进行讨论.").ConfigureAwait(false);
-
                         dbContext.Remove(report);
+
+                        await thread.SendMessageAsync($"请双方 <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> 在72h内提供相关资料供 <@&1301329024680857692> 进行讨论.").ConfigureAwait(false);
                     }
 
                     await dbContext.SaveChangesAsync().ConfigureAwait(false);
