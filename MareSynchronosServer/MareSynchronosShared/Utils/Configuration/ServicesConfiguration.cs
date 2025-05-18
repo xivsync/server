@@ -17,7 +17,7 @@ public class ServicesConfiguration : MareConfigurationBase
     public Dictionary<ulong, string> VanityRoles { get; set; } = new Dictionary<ulong, string>();
 
     public ulong? Supporter { get; set; } = null;
-    public ulong? WarningRole = null;
+    public ulong? WarningRole { get; set; } = null;
 
     public override string ToString()
     {
