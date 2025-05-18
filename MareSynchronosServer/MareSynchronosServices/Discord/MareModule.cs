@@ -575,9 +575,11 @@ public class MareModule : InteractionModuleBase
 
     [RequireUserPermission(GuildPermission.Administrator)]
     [SlashCommand("warnuser", "仅限管理员：警告用户")]
-    public async Task WarnUser([Summary("uid", "用户 UID")] string? desiredUid,
-        [Summary("discord_user", "用户 Discord")] IUser? desiredDCAccount,
-        [Summary("reason", "警告理由")] string reason)
+    public async Task WarnUser(
+        [Summary("reason", "警告理由")] string reason,
+        [Summary("discord_user", "用户 Discord")] IUser? desiredDCAccount = null,
+        [Summary("uid", "用户 UID")] string? desiredUid = null
+        )
     {
         try
         {
