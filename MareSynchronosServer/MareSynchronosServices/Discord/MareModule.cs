@@ -696,6 +696,7 @@ public class MareModule : InteractionModuleBase
         catch (Exception e)
         {
             await RespondAsync(e.Message, ephemeral:true).ConfigureAwait(false);
+            _logger.LogError(e.ToString());
         }
 
     }
