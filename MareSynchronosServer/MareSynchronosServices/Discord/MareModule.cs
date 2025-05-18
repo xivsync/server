@@ -670,7 +670,7 @@ public class MareModule : InteractionModuleBase
                 await dbContext.SaveChangesAsync().ConfigureAwait(false);
 
                 await restChannel.SendMessageAsync($"对用户 <@{dcid}> 进行了警告, 原因: `{reason}`").ConfigureAwait(false);
-                return;
+                await RespondAsync($"对用户 <@{dcid}> 进行了警告, 原因: `{reason}`", ephemeral: true).ConfigureAwait(false);
             }
             else //二次
             {
@@ -689,7 +689,7 @@ public class MareModule : InteractionModuleBase
                 await BanUser(userToBanUid, reason).ConfigureAwait(false);
 
                 await restChannel.SendMessageAsync($"对用户 <@{dcid}> 进行了警告, 原因: `{reason}`, 由于警告的叠加, 升级为封禁.").ConfigureAwait(false);
-                return;
+                await RespondAsync($"对用户 <@{dcid}> 进行了警告, 原因: `{reason}`, 由于警告的叠加, 升级为封禁.", ephemeral: true).ConfigureAwait(false);
             }
 
         }
