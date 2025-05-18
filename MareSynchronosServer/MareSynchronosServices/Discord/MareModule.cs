@@ -586,9 +586,9 @@ public class MareModule : InteractionModuleBase
             using var scope = _services.CreateScope();
             using var dbContext = scope.ServiceProvider.GetService<MareDbContext>();
 
-            var roleId = _mareServicesConfiguration.GetValueOrDefault<ulong>(nameof(ServicesConfiguration.WarningRole), 1329441701487575070);
+            var roleId = _mareServicesConfiguration.GetValueOrDefault<ulong?>(nameof(ServicesConfiguration.WarningRole), 1329441701487575070);
 
-            if (await Context.Guild.GetRoleAsync(roleId).ConfigureAwait(false) is null)
+            if (await Context.Guild.GetRoleAsync(roleId.Value).ConfigureAwait(false) is null)
             {
                 await RespondAsync($"未查找到 <{roleId}> 对应角色组, 请检查后再试.", ephemeral:true).ConfigureAwait(false);
                 return;
@@ -651,7 +651,7 @@ public class MareModule : InteractionModuleBase
 
             if (warning is null || warning.Time.AddMonths(6) < DateTime.UtcNow) //初次
             {
-                await discordUser.AddRoleAsync(roleId).ConfigureAwait(false);
+                await discordUser.AddRoleAsync(roleId.Value).ConfigureAwait(false);
                 if (warning is null)
                 {
                     var newWarning = new Warning
