@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using MareSynchronos.API.Dto.Group;
 using MareSynchronos.API.Dto.User;
 
 namespace MareSynchronosServer.Hubs;
@@ -237,7 +238,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
     [Authorize(Policy = "Identified")]
     public async Task MoodlesShare(MoodlesDto dto)
     {
-        _logger.LogCallWarning(MareHubLogger.Args(dto.Action, dto.Statuses));
+        _logger.LogCallInfo(MareHubLogger.Args(dto.Action, dto.Statuses));
         try
         {
             if (dto.Action == MoodlesAction.UpLoad)
@@ -281,6 +282,61 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
         catch (Exception e)
         {
             _logger.LogCallWarning(MareHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, dto.User.UID, Context.ConnectionId, e.Message));
+        }
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<bool> UpdatePFinder(PFinderDto pFinderDto)
+    {
+        _logger.LogCallInfo(MareHubLogger.Args(pFinderDto.Title, pFinderDto.User));
+        try
+        {
+            var pf = await DbContext.PFinder.FirstOrDefaultAsync(x => x.Guid == pFinderDto.Guid).ConfigureAwait(false);
+            if (pf == null)
+            {
+                pf = new PFinder(pFinderDto);
+                DbContext.PFinder.Add(pf);
+            }
+            else
+            {
+                if (pf.UserId != pFinderDto.User.UID || pf.GroupId != pFinderDto.Group.GID)
+                {
+                    return false;
+                }
+                pf = new PFinder(pFinderDto);
+            }
+
+            DbContext.SaveChanges();
+            return true;
+        }
+        catch (Exception e)
+        {
+            _logger.LogCallWarning(MareHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, pFinderDto.User.UID, Context.ConnectionId, e.Message));
+            return false;
+        }
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<List<PFinderDto>> RefreshPfinderList(UserDto userDto)
+    {
+        _logger.LogCallInfo(MareHubLogger.Args(userDto.User.AliasOrUID));
+        try
+        {
+            List<PFinderDto> result = [];
+            var pfs = await DbContext.PFinder.AsNoTracking().Where(x => x.EndTime > DateTime.UtcNow).ToListAsync().ConfigureAwait(false);
+            foreach (var pf in pfs)
+            {
+                var inGroup = await DbContext.GroupPairs.AnyAsync(x =>x.GroupGID == pf.GroupId && x.GroupUserUID == userDto.User.UID).ConfigureAwait(false);
+                if (!pf.Open && !inGroup) continue;
+                result.Add(pf.ToDto());
+            }
+
+            return result;
+        }
+        catch (Exception e)
+        {
+            _logger.LogCallWarning(MareHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, userDto.User.UID, Context.ConnectionId, e.Message));
+            return [];
         }
     }
 }

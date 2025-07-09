@@ -58,6 +58,7 @@ public class MareDbContext : DbContext
     public DbSet<Chat> ChatLog { get; set; }
     public DbSet<Moodles> Moodles { get; set; }
     public DbSet<Warning> Warnings { get; set; }
+    public DbSet<PFinder> PFinder { get; set; }
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -159,5 +160,10 @@ public class MareDbContext : DbContext
         mb.Entity<Moodles>().ToTable("moodles");
         mb.Entity<Moodles>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserUID).OnDelete(DeleteBehavior.NoAction);
         mb.Entity<Warning>().ToTable("warnings");
+        mb.Entity<PFinder>().ToTable("pfinder");
+        mb.Entity<PFinder>().HasOne(x => x.Group).WithMany().HasForeignKey(x => x.GroupId)
+            .OnDelete(DeleteBehavior.NoAction);
+        mb.Entity<PFinder>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
