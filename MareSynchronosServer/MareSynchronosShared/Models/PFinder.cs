@@ -29,6 +29,10 @@ public class PFinder
 
     public bool Open { get; set; }
 
+    public bool HasTempGroup { get; set; }
+
+    public string? TempGroupPW { get; set; }
+
     public User User { get; set; }
     [MaxLength(20)]
     public string UserId { get; set; }
@@ -52,6 +56,8 @@ public class PFinder
         Open = pFinderDto.Open;
         UserId = pFinderDto.User.UID;
         GroupId = pFinderDto.Group.GID;
+        HasTempGroup = pFinderDto.HasTempGroup;
+        TempGroupPW = pFinderDto.TempGroupPW;
     }
 
     public void Update(PFinderDto pFinderDto)
@@ -66,10 +72,13 @@ public class PFinder
         Open = pFinderDto.Open;
         UserId = pFinderDto.User.UID;
         GroupId = pFinderDto.Group.GID;
+        HasTempGroup = pFinderDto.HasTempGroup;
+        TempGroupPW = pFinderDto.TempGroupPW;
     }
 
     public PFinderDto ToDto()
     {
-        return new PFinderDto(Guid, StartTime, EndTime, LastUpdate, Title, Description, Tags, IsNSFW, Open, new GroupData(GroupId, Group.Alias ?? null), new UserData(UserId, User.Alias ?? null));
+        return new PFinderDto(Guid, StartTime, EndTime, LastUpdate, Title, Description, Tags, IsNSFW, Open, new GroupData(GroupId, Group.Alias ?? null), new UserData(UserId, User.Alias ?? null),
+            HasTempGroup, TempGroupPW);
     }
 }

@@ -318,7 +318,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<List<PFinderDto>> RefreshPfinderList(UserDto userDto)
+    public async Task<List<PFinderDto>> RefreshPFinderList(UserDto userDto)
     {
         _logger.LogCallInfo(MareHubLogger.Args(userDto.User.AliasOrUID));
         try
