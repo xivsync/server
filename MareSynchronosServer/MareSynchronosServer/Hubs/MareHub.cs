@@ -331,7 +331,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
                 result.Add(pf.ToDto());
             }
 
-            return result;
+            return result.OrderByDescending(x=> x.LastUpdate).ToList();
         }
         catch (Exception e)
         {
