@@ -323,7 +323,8 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
         try
         {
             List<PFinderDto> result = [];
-            var pfs = await DbContext.PFinder.AsNoTracking().Where(x => x.EndTime > DateTime.UtcNow).ToListAsync().ConfigureAwait(false);
+            var pfs = await DbContext.PFinder.AsNoTracking().
+                Where(x => x.EndTime > DateTime.UtcNow).ToListAsync().ConfigureAwait(false);
             foreach (var pf in pfs)
             {
                 var inGroup = await DbContext.GroupPairs.AnyAsync(x =>x.GroupGID == pf.GroupId && x.GroupUserUID == userDto.User.UID).ConfigureAwait(false);
