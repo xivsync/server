@@ -70,6 +70,6 @@ public class PFinder
 
     public PFinderDto ToDto()
     {
-        return new PFinderDto(Guid, StartTime, EndTime, LastUpdate, Title, Description, Tags, IsNSFW, Open, new GroupData(GroupId, Group.Alias), new UserData(UserId, User.Alias));
+        return new PFinderDto(Guid, StartTime, EndTime, LastUpdate, Title, Description, Tags, IsNSFW, Open, new GroupData(GroupId, Group.Alias ?? null), new UserData(UserId, User.Alias ?? null));
     }
 }
