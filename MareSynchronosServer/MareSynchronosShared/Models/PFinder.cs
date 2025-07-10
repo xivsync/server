@@ -54,6 +54,20 @@ public class PFinder
         GroupId = pFinderDto.Group.GID;
     }
 
+    public void Update(PFinderDto pFinderDto)
+    {
+        StartTime = pFinderDto.StartTime;
+        EndTime = pFinderDto.EndTime;
+        LastUpdate = pFinderDto.LastUpdate;
+        Title = pFinderDto.Title;
+        Description = pFinderDto.Description;
+        Tags = pFinderDto.Tags;
+        IsNSFW = pFinderDto.IsNSFW;
+        Open = pFinderDto.Open;
+        UserId = pFinderDto.User.UID;
+        GroupId = pFinderDto.Group.GID;
+    }
+
     public PFinderDto ToDto()
     {
         return new PFinderDto(Guid, StartTime, EndTime, LastUpdate, Title, Description, Tags, IsNSFW, Open, new GroupData(GroupId), new UserData(UserId));

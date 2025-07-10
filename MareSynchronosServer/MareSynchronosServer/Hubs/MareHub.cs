@@ -299,11 +299,11 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
             }
             else
             {
-                if (pf.UserId != pFinderDto.User.UID || pf.GroupId != pFinderDto.Group.GID)
+                if (pf.UserId != pFinderDto.User.UID)
                 {
                     return false;
                 }
-                pf = new PFinder(pFinderDto);
+                pf.Update(pFinderDto);
             }
 
             DbContext.SaveChanges();
