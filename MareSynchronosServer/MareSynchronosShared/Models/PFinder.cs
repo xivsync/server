@@ -42,9 +42,9 @@ public class PFinder
     public PFinder(PFinderDto pFinderDto)
     {
         Guid = pFinderDto.Guid;
-        StartTime = pFinderDto.StartTime;
-        EndTime = pFinderDto.EndTime;
-        LastUpdate = pFinderDto.LastUpdate;
+        StartTime = pFinderDto.StartTime.ToUniversalTime();
+        EndTime = pFinderDto.EndTime.ToUniversalTime();
+        LastUpdate = pFinderDto.LastUpdate.ToUniversalTime();
         Title = pFinderDto.Title;
         Description = pFinderDto.Description;
         Tags = pFinderDto.Tags;
@@ -56,9 +56,9 @@ public class PFinder
 
     public void Update(PFinderDto pFinderDto)
     {
-        StartTime = pFinderDto.StartTime;
-        EndTime = pFinderDto.EndTime;
-        LastUpdate = pFinderDto.LastUpdate;
+        StartTime = pFinderDto.StartTime.ToUniversalTime();
+        EndTime = pFinderDto.EndTime.ToUniversalTime();
+        LastUpdate = pFinderDto.LastUpdate.ToUniversalTime();
         Title = pFinderDto.Title;
         Description = pFinderDto.Description;
         Tags = pFinderDto.Tags;
