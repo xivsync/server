@@ -304,6 +304,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
                     return false;
                 }
                 pf.Update(pFinderDto);
+                pf.LastUpdate = DateTimeOffset.Now;
             }
 
             DbContext.SaveChanges();
@@ -324,7 +325,7 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
         {
             List<PFinderDto> result = [];
             var pfs = await DbContext.PFinder.AsNoTracking().Include(x => x.Group).Include(x => x.User)
-                .Where(x => x.EndTime > DateTime.UtcNow).ToListAsync().ConfigureAwait(false);
+                .Where(x => x.EndTime > DateTimeOffset.Now).ToListAsync().ConfigureAwait(false);
             foreach (var pf in pfs)
             {
                 var inGroup = await DbContext.GroupPairs.AnyAsync(x =>x.GroupGID == pf.GroupId && x.GroupUserUID == userDto.User.UID).ConfigureAwait(false);

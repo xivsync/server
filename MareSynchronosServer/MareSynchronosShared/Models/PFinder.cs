@@ -10,11 +10,11 @@ public class PFinder
     [Key]
     public Guid Guid { get; set; }
 
-    public DateTime StartTime { get; set; }
+    public DateTimeOffset StartTime { get; set; }
 
-    public DateTime EndTime { get; set; }
+    public DateTimeOffset EndTime { get; set; }
 
-    public DateTime LastUpdate { get; set; }
+    public DateTimeOffset LastUpdate { get; set; }
 
     [MaxLength(128)]
     public string Title { get; set; }
