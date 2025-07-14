@@ -13,9 +13,9 @@ public class Chat
 
     public User Sender { get; set; }
     [MaxLength(20)]
-    public string SenderId { get; set; }
+    public string? SenderId { get; set; }
 
     public Group Group { get; set; }
     [MaxLength(20)]
-    public string GroupId { get; set; }
+    public string? GroupId { get; set; }
 }

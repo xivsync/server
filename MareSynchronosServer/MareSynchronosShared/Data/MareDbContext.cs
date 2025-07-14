@@ -155,14 +155,14 @@ public class MareDbContext : DbContext
         mb.Entity<Support>().ToTable("supports");
         mb.Entity<Support>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserUID).OnDelete(DeleteBehavior.Cascade);
         mb.Entity<Chat>().ToTable("chat_log");
-        mb.Entity<Chat>().HasOne(c => c.Sender).WithMany().HasForeignKey(c => c.SenderId).OnDelete(DeleteBehavior.NoAction);
-        mb.Entity<Chat>().HasOne(c => c.Group).WithMany().HasForeignKey(c => c.GroupId).OnDelete(DeleteBehavior.NoAction);
+        mb.Entity<Chat>().HasOne(c => c.Sender).WithMany().HasForeignKey(c => c.SenderId).OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<Chat>().HasOne(c => c.Group).WithMany().HasForeignKey(c => c.GroupId).OnDelete(DeleteBehavior.SetNull);
         mb.Entity<Moodles>().ToTable("moodles");
-        mb.Entity<Moodles>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserUID).OnDelete(DeleteBehavior.NoAction);
+        mb.Entity<Moodles>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserUID).OnDelete(DeleteBehavior.Cascade);
         mb.Entity<Warning>().ToTable("warnings");
         mb.Entity<PFinder>().ToTable("pfinder");
         mb.Entity<PFinder>().HasOne(x => x.Group).WithMany().HasForeignKey(x => x.GroupId)
-            .OnDelete(DeleteBehavior.NoAction);
+            .OnDelete(DeleteBehavior.SetNull);
         mb.Entity<PFinder>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
             .OnDelete(DeleteBehavior.NoAction);
     }
