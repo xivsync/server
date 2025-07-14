@@ -326,14 +326,23 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
             List<PFinderDto> result = [];
             var pfs = await DbContext.PFinder.AsNoTracking().Include(x => x.Group).Include(x => x.User)
                 .Where(x => x.EndTime > DateTimeOffset.UtcNow).ToListAsync().ConfigureAwait(false);
+            var lastPassedPf = await DbContext.PFinder.AsNoTracking().Include(x => x.Group).Include(x => x.User)
+                .FirstOrDefaultAsync(x =>
+                    x.UserId == userDto.User.UID && DateTimeOffset.MinValue.AddYears(1) < x.EndTime &&
+                    x.EndTime < DateTimeOffset.UtcNow).ConfigureAwait(false);
             foreach (var pf in pfs)
             {
                 var inGroup = await DbContext.GroupPairs.AnyAsync(x =>x.GroupGID == pf.GroupId && x.GroupUserUID == userDto.User.UID).ConfigureAwait(false);
                 if (!pf.Open && !inGroup) continue;
                 result.Add(pf.ToDto());
             }
+            result = result.OrderByDescending(x=> x.LastUpdate).ToList();
+            if (lastPassedPf != null)
+            {
+                result.Add(lastPassedPf.ToDto());
+            }
 
-            return result.OrderByDescending(x=> x.LastUpdate).ToList();
+            return result;
         }
         catch (Exception e)
         {
