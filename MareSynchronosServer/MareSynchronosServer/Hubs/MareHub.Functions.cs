@@ -19,6 +19,8 @@ public partial class MareHub
 
     public string NameWithWorld => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, MareClaimTypes.NameWithWorld, StringComparison.Ordinal))?.Value ?? "UNK";
 
+    public string UserAccountId => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, MareClaimTypes.AccountId, StringComparison.Ordinal))?.Value ?? UserCharaIdent;
+
     private async Task DeleteUser(User user)
     {
         var ownPairData = await DbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
@@ -174,10 +176,11 @@ public partial class MareHub
         var user = await DbContext.Auth.FirstOrDefaultAsync(u => u.UserUID == targetUid).ConfigureAwait(false);
         if (user is not null)
         {
-            if (user.CharaIds is null) user.CharaIds = new List<string>();
-            if (!user.CharaIds.Contains(UserCharaIdent, StringComparer.OrdinalIgnoreCase))
+            user.CharaIds ??= new List<string>();
+
+            if (!user.CharaIds.Contains(UserAccountId, StringComparer.OrdinalIgnoreCase))
             {
-                user.CharaIds.Add(UserCharaIdent);
+                user.CharaIds.Add(UserAccountId);
             }
 
             if (user.NameWithWorld != NameWithWorld && NameWithWorld is not "UNK")
@@ -189,7 +192,7 @@ public partial class MareHub
         }
         else
         {
-            _logger.LogCallWarning([UserUID, UserCharaIdent], nameof(UpdateUserOnRedis));
+            _logger.LogCallWarning([UserUID, UserAccountId, UserCharaIdent], nameof(UpdateUserOnRedis));
         }
     }
 

@@ -41,18 +41,24 @@ public abstract class AuthControllerBase : Controller
         Configuration = configuration;
     }
 
-    protected async Task<IActionResult> GenericAuthResponse(MareDbContext dbContext, string charaIdent, SecretKeyAuthReply authResult, string nameWithWorld = "", string? machineId = null)
+    protected async Task<IActionResult> GenericAuthResponse(MareDbContext dbContext, string charaIdent, SecretKeyAuthReply authResult, string nameWithWorld = "", string? machineId = null, string? aid = null)
     {
         if (await IsIdentBanned(dbContext, charaIdent))
         {
             Logger.LogWarning("Authenticate:IDENTBAN:{id}:{ident}", authResult.Uid, charaIdent);
-            return Unauthorized("你的FF账号被禁止使用本服务.");
+            return Unauthorized("本角色已被禁止使用本服务.");
         }
 
         if (machineId is not null && await IsIdentBanned(dbContext, machineId))
         {
             Logger.LogWarning("Authenticate:MachineBAN:{id}:{ident}", authResult.Uid, machineId);
-            return Unauthorized("你被禁止使用本服务.");
+            return Unauthorized("本机已被禁止使用本服务.");
+        }
+
+        if (aid is not null && await IsIdentBanned(dbContext, aid))
+        {
+            Logger.LogWarning("Authenticate:AID:{id}:{ident}", authResult.Uid, aid);
+            return Unauthorized("本账号已被禁止使用本服务.");
         }
 
         if (!authResult.Success && !authResult.TempBan)
@@ -68,14 +74,16 @@ public abstract class AuthControllerBase : Controller
 
         if (authResult.Permaban || authResult.MarkedForBan)
         {
-            await EnsureBan(authResult.Uid!, authResult.PrimaryUid, charaIdent);
+            await EnsureBan(authResult.Uid!, authResult.PrimaryUid, aid ?? charaIdent);
 
             if (!string.IsNullOrEmpty(machineId))
             {
                 await EnsureBan(authResult.Uid!, authResult.PrimaryUid, machineId, true);
+                Logger.LogWarning("Authenticate:MIDBAN:{id}:{ident}", authResult.Uid, aid ?? charaIdent);
+                return Unauthorized("本机已被封禁.");
             }
 
-            Logger.LogWarning("Authenticate:UIDBAN:{id}:{ident}", authResult.Uid, charaIdent);
+            Logger.LogWarning("Authenticate:UIDBAN:{id}:{ident}", authResult.Uid, aid ?? charaIdent);
             return Unauthorized("你的Mare账号已被封禁.");
         }
 
@@ -87,7 +95,7 @@ public abstract class AuthControllerBase : Controller
         }
 
         Logger.LogInformation("Authenticate:SUCCESS:{id}:{ident}", authResult.Uid, charaIdent);
-        return await CreateJwtFromId(authResult.Uid!, charaIdent, authResult.Alias ?? string.Empty, nameWithWorld);
+        return await CreateJwtFromId(authResult.Uid!, charaIdent, authResult.Alias ?? string.Empty, nameWithWorld, aid);
     }
 
     protected JwtSecurityToken CreateJwt(IEnumerable<Claim> authClaims)
@@ -105,7 +113,7 @@ public abstract class AuthControllerBase : Controller
         return handler.CreateJwtSecurityToken(token);
     }
 
-    protected async Task<IActionResult> CreateJwtFromId(string uid, string charaIdent, string alias, string nameWithWorld)
+    protected async Task<IActionResult> CreateJwtFromId(string uid, string charaIdent, string alias, string nameWithWorld, string aid)
     {
         var token = CreateJwt(new List<Claim>()
         {
@@ -114,7 +122,8 @@ public abstract class AuthControllerBase : Controller
             new Claim(MareClaimTypes.Alias, alias),
             new Claim(MareClaimTypes.Expires, DateTime.UtcNow.AddHours(6).Ticks.ToString(CultureInfo.InvariantCulture)),
             new Claim(MareClaimTypes.Continent, await _geoIPProvider.GetCountryFromIP(HttpAccessor)),
-            new Claim(MareClaimTypes.NameWithWorld, nameWithWorld)
+            new Claim(MareClaimTypes.NameWithWorld, nameWithWorld),
+            new Claim(MareClaimTypes.AccountId, aid)
         });
 
         return Content(token.RawData);
