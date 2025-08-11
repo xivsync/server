@@ -347,14 +347,14 @@ public class OAuthController : AuthControllerBase
 
     [Authorize(Policy = "OAuthToken")]
     [HttpPost(MareAuth.OAuth_CreateOAuth)]
-    public async Task<IActionResult> CreateTokenWithOAuth(string uid, string charaIdent, string nameWithWorld, string? machineId = null, string? aid = null)
+    public async Task<IActionResult> CreateTokenWithOAuth(string uid, string charaIdent, string nameWithWorld, string? machineId = null)
     {
         using var dbContext = await MareDbContextFactory.CreateDbContextAsync();
 
-        return await AuthenticateOAuthInternal(dbContext, uid, charaIdent,nameWithWorld, machineId, aid);
+        return await AuthenticateOAuthInternal(dbContext, uid, charaIdent,nameWithWorld, machineId);
     }
 
-    private async Task<IActionResult> AuthenticateOAuthInternal(MareDbContext dbContext, string requestedUid, string charaIdent, string nameWithWorld, string? machineId = null, string? aid = null)
+    private async Task<IActionResult> AuthenticateOAuthInternal(MareDbContext dbContext, string requestedUid, string charaIdent, string nameWithWorld, string? machineId = null)
     {
         try
         {
@@ -374,7 +374,7 @@ public class OAuthController : AuthControllerBase
 
             var authResult = await SecretKeyAuthenticatorService.AuthorizeOauthAsync(ip, primaryUid, requestedUid);
 
-            return await GenericAuthResponse(dbContext, charaIdent, authResult, nameWithWorld, machineId, aid);
+            return await GenericAuthResponse(dbContext, charaIdent, authResult, nameWithWorld, machineId);
         }
         catch (Exception ex)
         {
