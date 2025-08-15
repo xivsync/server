@@ -583,9 +583,16 @@ public partial class MareHub
         };
         DbContext.ChatLog.Add(message);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        if (!await DbContext.GroupPairs.AsNoTracking().AnyAsync(x => x.GroupGID == groupChatDto.GID && x.GroupUserUID == groupChatDto.User.UID).ConfigureAwait(false)) return;
-        var groupPairs = DbContext.GroupPairs.AsNoTracking().Where(p => p.GroupGID == groupChatDto.GID).Select(p => p.GroupUserUID).ToList();
-        await Clients.Users(groupPairs).Client_GroupChat(groupChatDto).ConfigureAwait(false);
+        if (string.Equals(groupChatDto.Group.GID, "MSS-GLOBAL", StringComparison.OrdinalIgnoreCase))
+        {
+            await Clients.All.Client_GroupChat(groupChatDto).ConfigureAwait(false);
+        }
+        else
+        {
+            if (!await DbContext.GroupPairs.AsNoTracking().AnyAsync(x => x.GroupGID == groupChatDto.GID && x.GroupUserUID == groupChatDto.User.UID).ConfigureAwait(false)) return;
+            var groupPairs = DbContext.GroupPairs.AsNoTracking().Where(p => p.GroupGID == groupChatDto.GID).Select(p => p.GroupUserUID).ToList();
+            await Clients.Users(groupPairs).Client_GroupChat(groupChatDto).ConfigureAwait(false);
+        }
     }
 
     [Authorize(Policy = "Identified")]
