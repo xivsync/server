@@ -1,4 +1,4 @@
-﻿using Discord;
+using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using MareSynchronosShared.Data;
@@ -52,11 +52,11 @@ public partial class MareWizardModule : InteractionModuleBase
         var correctButton = rnd.Next(4) + 1;
         string nthButtonText = correctButton switch
         {
-            1 => "一",
-            2 => "二",
-            3 => "三",
-            4 => "四",
-            _ => "错误",
+            1 => "first",
+            2 => "second",
+            3 => "third",
+            4 => "fourth",
+            _ => "error",
         };
 
         Emoji nthButtonEmoji = correctButton switch
@@ -68,10 +68,12 @@ public partial class MareWizardModule : InteractionModuleBase
             _ => "unknown",
         };
 
-        eb.WithTitle("Mare Bot Services 验证");
-        eb.WithDescription("机器人启动后您的首次使用需要先进行验证." + Environment.NewLine + Environment.NewLine
-            + "本机器人 __需要__ embeds 功能来正常运行. 如要继续,请保证你的 Embed 功能已启用." + Environment.NewLine
-            + $"## 请点击下方 __第 **{nthButtonText}** 个按钮 ({nthButtonEmoji}).__");
+        eb.WithTitle("Mare Bot Services Verification");
+        eb.WithDescription("When using the bot for the first time after startup, you must pass a quick verification."
+            + Environment.NewLine + Environment.NewLine
+            + "This bot __requires__ embeds to function properly. To continue, make sure your Embed feature is enabled."
+            + Environment.NewLine
+            + $"## Please click the __{nthButtonText}__ button below ({nthButtonEmoji}).");
         eb.WithColor(Color.LightOrange);
 
         int incorrectButtonHighlight = 1;
@@ -82,9 +84,9 @@ public partial class MareWizardModule : InteractionModuleBase
         while (incorrectButtonHighlight == correctButton);
 
         ComponentBuilder cb = new();
-        cb.WithButton("使用", correctButton == 1 ? "wizard-home:false" : "wizard-captcha-fail:1", emote: new Emoji("⬅️"), style: incorrectButtonHighlight == 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-        cb.WithButton("本机器人", correctButton == 2 ? "wizard-home:false" : "wizard-captcha-fail:2", emote: new Emoji("🤖"), style: incorrectButtonHighlight == 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-        cb.WithButton("需要启用", correctButton == 3 ? "wizard-home:false" : "wizard-captcha-fail:3", emote: new Emoji("‼️"), style: incorrectButtonHighlight == 3 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("Use", correctButton == 1 ? "wizard-home:false" : "wizard-captcha-fail:1", emote: new Emoji("⬅️"), style: incorrectButtonHighlight == 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("This bot", correctButton == 2 ? "wizard-home:false" : "wizard-captcha-fail:2", emote: new Emoji("🤖"), style: incorrectButtonHighlight == 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("requires", correctButton == 3 ? "wizard-home:false" : "wizard-captcha-fail:3", emote: new Emoji("‼️"), style: incorrectButtonHighlight == 3 ? ButtonStyle.Primary : ButtonStyle.Secondary);
         cb.WithButton("Embeds", correctButton == 4 ? "wizard-home:false" : "wizard-captcha-fail:4", emote: new Emoji("✉️"), style: incorrectButtonHighlight == 4 ? ButtonStyle.Primary : ButtonStyle.Secondary);
 
         await InitOrUpdateInteraction(init, eb, cb).ConfigureAwait(false);
@@ -109,11 +111,11 @@ public partial class MareWizardModule : InteractionModuleBase
     public async Task WizardCaptchaFail(int button)
     {
         ComponentBuilder cb = new();
-        cb.WithButton("重试", "wizard-captcha:false", emote: new Emoji("↩️"));
+        cb.WithButton("Retry", "wizard-captcha:false", emote: new Emoji("↩️"));
         await ((Context.Interaction) as IComponentInteraction).UpdateAsync(m =>
         {
             m.Embed = null;
-            m.Content = "你点击了错误的按钮. 你可能关闭了 embeds 功能. 打开 (用户设置 -> 聊天 -> \"显示嵌入并预览黏贴在聊天中的网站链接\") 并重试.";
+            m.Content = "You clicked the wrong button. You may have embeds disabled. Enable it (User Settings → Text & Images → \"Show embeds and preview website links pasted into chat\") and try again.";
             m.Components = cb.Build();
         }).ConfigureAwait(false);
 
@@ -141,8 +143,8 @@ public partial class MareWizardModule : InteractionModuleBase
             if (isBanned)
             {
                 EmbedBuilder ebBanned = new();
-                ebBanned.WithTitle("你已被本服务器封禁");
-                ebBanned.WithDescription("该Discord账号已被封禁");
+                ebBanned.WithTitle("You are banned on this server");
+                ebBanned.WithDescription("This Discord account is banned.");
                 await RespondAsync(embed: ebBanned.Build(), ephemeral: true).ConfigureAwait(false);
                 _logger.LogInformation("Banned user interacted {method}:{userId}", nameof(StartWizard), Context.Interaction.User.Id);
                 return;
@@ -156,31 +158,31 @@ public partial class MareWizardModule : InteractionModuleBase
 #endif
 
         EmbedBuilder eb = new();
-        eb.WithTitle("欢迎使用本服务器的 Mare Synchronos 服务机器人");
-        eb.WithDescription("你可以做这些事情:" + Environment.NewLine + Environment.NewLine
-            + (!hasAccount ? string.Empty : ("- 检查你的账号状态 点击 \"ℹ️ 用户信息\"" + Environment.NewLine))
-            + (hasAccount ? string.Empty : ("- 注册一个新的 Mare 账号 点击 \"🌒 注册\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 如果丢失了同步密钥 点击 \"🏥 恢复\"" + Environment.NewLine))
-            + (hasAccount ? string.Empty : ("- 如果你更换了你的 Discord 账号 点击 \"🔗 重新连接\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 创建一个小号 Mare UID 点击 \"2️⃣ 辅助UID\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 设置个性 Mare UID 点击 \"💅 个性 UID\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- 删除你的大号或者小号 点击 \"⚠️ 删除\""))
+        eb.WithTitle("Welcome to the Mare Synchronos service bot for this server");
+        eb.WithDescription("You can do the following:" + Environment.NewLine + Environment.NewLine
+            + (!hasAccount ? string.Empty : ("- Check your account status: click \"ℹ️ User Info\"" + Environment.NewLine))
+            + (hasAccount ? string.Empty : ("- Register a new Mare account: click \"🌒 Register\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- If you lost your sync key: click \"🏥 Recover\"" + Environment.NewLine))
+            + (hasAccount ? string.Empty : ("- If you changed your Discord account: click \"🔗 Relink\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- Create an alternate Mare UID: click \"2️⃣ Secondary UID\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- Set a vanity Mare UID: click \"💅 Vanity UID\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- Delete your primary or secondary UID: click \"⚠️ Delete\""))
             );
         eb.WithColor(Color.Blue);
         ComponentBuilder cb = new();
         if (!hasAccount)
         {
-            cb.WithButton("注册", "wizard-register", ButtonStyle.Primary, new Emoji("🌒"));
-            cb.WithButton("重新连接", "wizard-relink", ButtonStyle.Secondary, new Emoji("🔗"));
+            cb.WithButton("Register", "wizard-register", ButtonStyle.Primary, new Emoji("🌒"));
+            cb.WithButton("Relink", "wizard-relink", ButtonStyle.Secondary, new Emoji("🔗"));
         }
         else
         {
-            cb.WithButton("用户信息", "wizard-userinfo", ButtonStyle.Secondary, new Emoji("ℹ️"));
-            //cb.WithButton("恢复", "wizard-recover", ButtonStyle.Secondary, new Emoji("🏥"));
-            cb.WithButton("辅助UID", "wizard-secondary", ButtonStyle.Secondary, new Emoji("2️⃣"));
-            cb.WithButton("个性 UID", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💅"));
-            cb.WithButton("删除", "wizard-delete", ButtonStyle.Danger, new Emoji("⚠️"));
-            cb.WithButton("赞助", "wizard-support", ButtonStyle.Secondary, new Emoji("💎"));
+            cb.WithButton("User Info", "wizard-userinfo", ButtonStyle.Secondary, new Emoji("ℹ️"));
+            //cb.WithButton("Recover", "wizard-recover", ButtonStyle.Secondary, new Emoji("🏥"));
+            cb.WithButton("Secondary UID", "wizard-secondary", ButtonStyle.Secondary, new Emoji("2️⃣"));
+            cb.WithButton("Vanity UID", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💅"));
+            cb.WithButton("Delete", "wizard-delete", ButtonStyle.Danger, new Emoji("⚠️"));
+            cb.WithButton("Support", "wizard-support", ButtonStyle.Secondary, new Emoji("💎"));
         }
 
         await InitOrUpdateInteraction(init, eb, cb).ConfigureAwait(false);
@@ -188,28 +190,28 @@ public partial class MareWizardModule : InteractionModuleBase
 
     public class VanityUidModal : IModal
     {
-        public string Title => "设置个性 UID";
+        public string Title => "Set Vanity UID";
 
-        [InputLabel("输入你想要设置的个性 UID")]
-        [ModalTextInput("vanity_uid", TextInputStyle.Short, "2-15个字符，中文，下划线，短横线", 2, 15)]
+        [InputLabel("Enter the vanity UID you want")]
+        [ModalTextInput("vanity_uid", TextInputStyle.Short, "2–15 characters: letters, digits, hyphen (-), underscore (_)", 2, 15)]
         public string DesiredVanityUID { get; set; }
     }
 
     public class VanityGidModal : IModal
     {
-        public string Title => "设置个性同步贝ID";
+        public string Title => "Set Vanity Group ID";
 
-        [InputLabel("输入你想要设置的个性同步贝ID")]
-        [ModalTextInput("vanity_gid", TextInputStyle.Short, "2-15个字符，中文，下划线，短横线", 2, 15)]
+        [InputLabel("Enter the vanity Group ID you want")]
+        [ModalTextInput("vanity_gid", TextInputStyle.Short, "2–15 characters: letters, digits, hyphen (-), underscore (_)", 2, 15)]
         public string DesiredVanityGID { get; set; }
     }
 
     public class ConfirmDeletionModal : IModal
     {
-        public string Title => "确认账号删除";
+        public string Title => "Confirm Account Deletion";
 
-        [InputLabel("输入全大写的 \"DELETE\"")]
-        [ModalTextInput("confirmation", TextInputStyle.Short, "输入 DELETE")]
+        [InputLabel("Type \"DELETE\" in ALL CAPS")]
+        [ModalTextInput("confirmation", TextInputStyle.Short, "Type DELETE")]
         public string Delete { get; set; }
     }
 
@@ -228,9 +230,10 @@ public partial class MareWizardModule : InteractionModuleBase
         }
 
         EmbedBuilder eb = new();
-        eb.WithTitle("会话已过期");
-        eb.WithDescription("当前的会话已经过期, 请重新点击 \"开始\" 按钮开始一个新的对话." + Environment.NewLine + Environment.NewLine
-            + "请使用最近一次的对话进行交互.");
+        eb.WithTitle("Session expired");
+        eb.WithDescription("This session has expired. Please click \"Start\" again to begin a new interaction."
+            + Environment.NewLine + Environment.NewLine
+            + "Please interact with the most recent thread.");
         eb.WithColor(Color.Red);
         ComponentBuilder cb = new();
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
@@ -240,7 +243,7 @@ public partial class MareWizardModule : InteractionModuleBase
 
     private void AddHome(ComponentBuilder cb)
     {
-        cb.WithButton("返回主菜单", "wizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
+        cb.WithButton("Back to Main Menu", "wizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
     }
 
     private async Task ModifyModalInteraction(EmbedBuilder eb, ComponentBuilder cb)
@@ -269,7 +272,7 @@ public partial class MareWizardModule : InteractionModuleBase
         if (existingAuth != null)
         {
             SelectMenuBuilder sb = new();
-            sb.WithPlaceholder("选择一个UID");
+            sb.WithPlaceholder("Select a UID");
             sb.WithCustomId(customId);
             var existingUids = await mareDb.Auth.Include(u => u.User).Where(u => u.UserUID == existingAuth.User.UID || u.PrimaryUserUID == existingAuth.User.UID)
                 .OrderByDescending(u => u.PrimaryUser == null).ToListAsync().ConfigureAwait(false);
@@ -302,7 +305,7 @@ public partial class MareWizardModule : InteractionModuleBase
                 gids.AddOption(item.Alias ?? item.GID, item.GID, (item.Alias == null ? string.Empty : item.GID) + $" ({item.Owner.Alias ?? item.Owner.UID})", new Emoji("2️⃣"));
             }
             gids.WithCustomId(customId);
-            gids.WithPlaceholder("选择一个同步贝");
+            gids.WithPlaceholder("Select a group");
             cb.WithSelectMenu(gids);
         }
     }

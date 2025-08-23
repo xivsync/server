@@ -98,7 +98,7 @@ public sealed class SystemInfoService : BackgroundService
                     }
                 }
 
-                // 步骤 4: 在单个事务中执行所有数据库删除操作
+                // 步骤 4: 在单个事务中执行所有数据库Delete操作
                 if (pairsToPurge.Any())
                 {
                     db.GroupPairs.RemoveRange(pairsToPurge);

@@ -569,7 +569,7 @@ public partial class MareHub
 
         if (!await DbContext.Groups.AsNoTracking().AnyAsync(x => x.GID == groupChatDto.GID && x.EnabledChat == true).ConfigureAwait(false))
         {
-            var errorDto = new GroupChatDto(new UserData("SYSTEM-INFO"), groupChatDto.Group, groupChatDto.Time, "该群组暂未开放聊天.");
+            var errorDto = new GroupChatDto(new UserData("SYSTEM-INFO"), groupChatDto.Group, groupChatDto.Time, "Chat is not enabled for this group.");
             await Clients.User(groupChatDto.User.UID).Client_GroupChat(errorDto).ConfigureAwait(false);
             return;
         }

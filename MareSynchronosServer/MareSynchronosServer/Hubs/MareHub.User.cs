@@ -33,13 +33,13 @@ public partial class MareHub
         var otherUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false);
         if (otherUser == null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"无法与 {dto.User.UID} 配对, UID不存在").ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot pair with {dto.User.UID}: UID not found.").ConfigureAwait(false);
             return;
         }
 
         if (string.Equals(otherUser.UID, UserUID, StringComparison.Ordinal))
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"只有神知道你为什么要和自己配对, 住手").ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Only the gods know why you want to pair with yourself—stop.").ConfigureAwait(false);
             return;
         }
 
@@ -50,7 +50,7 @@ public partial class MareHub
 
         if (existingEntry != null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"无法与 {dto.User.UID} 配对, 已配对").ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot pair with {dto.User.UID}: already paired.").ConfigureAwait(false);
             return;
         }
 
@@ -192,14 +192,14 @@ public partial class MareHub
 
         if (!allUserPairs.Contains(user.User.UID, StringComparer.Ordinal) && !string.Equals(user.User.UID, UserUID, StringComparison.Ordinal))
         {
-            return new UserProfileDto(user.User, false, null, null, "你无法在暂停配对时查看档案.");
+            return new UserProfileDto(user.User, false, null, null, "You can’t view profiles while pairing is paused.");
         }
 
         var data = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false);
         if (data == null) return new UserProfileDto(user.User, false, null, null, null);
 
-        if (data.FlaggedForReport) return new UserProfileDto(user.User, true, null, null, "该用户已被举报正在等待处理");
-        if (data.ProfileDisabled) return new UserProfileDto(user.User, true, null, null, "该档案被禁止访问");
+        if (data.FlaggedForReport) return new UserProfileDto(user.User, true, null, null, "This user has been reported and is pending review.");
+        if (data.ProfileDisabled) return new UserProfileDto(user.User, true, null, null, "This profile is disabled.");
 
         return new UserProfileDto(user.User, false, data.IsNSFW, data.Base64ProfileImage, data.UserDescription);
     }
@@ -219,8 +219,8 @@ public partial class MareHub
                 var title = honorificTitle.GetString().Normalize(NormalizationForm.FormKD);
                 if (UrlRegex().IsMatch(title))
                 {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "你的数据未能发送: 禁止在 Honorific 中使用网页地址. 请移除后重试.").ConfigureAwait(false);
-                    throw new HubException("无效的数据, Honorific 称号: " + title);
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your data was rejected: URLs aren’t allowed in Honorifics. Remove them and try again.").ConfigureAwait(false);
+                    throw new HubException("Invalid data, Honorific title: " + title);
                 }
             }
         }
@@ -256,12 +256,12 @@ public partial class MareHub
 
         if (hadInvalidData)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "你的某些Mod被服务器拒绝. 输入 /xllog 查看更多信息.").ConfigureAwait(false);
-            throw new HubException("无效的数据, 请联系Mod作者解决问题"
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Some of your mods were rejected by the server. Run /xllog for details.").ConfigureAwait(false);
+            throw new HubException("Invalid data. Please contact the mod author to resolve."
             + Environment.NewLine
-            + string.Join(Environment.NewLine, invalidGamePaths.Select(p => "无效的游戏路径: " + p))
+            + string.Join(Environment.NewLine, invalidGamePaths.Select(p => "Invalid game path: " + p))
             + Environment.NewLine
-            + string.Join(Environment.NewLine, invalidFileSwapPaths.Select(p => "无效的文件路径: " + p)));
+            + string.Join(Environment.NewLine, invalidFileSwapPaths.Select(p => "Invalid file path: " + p)));
         }
 
         var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
@@ -348,7 +348,7 @@ public partial class MareHub
         UserProfileDataReport report = await DbContext.UserProfileReports.SingleOrDefaultAsync(u => u.ReportedUserUID == dto.User.UID && u.ReportingUserUID == UserUID).ConfigureAwait(false);
         if (report != null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "你已经举报了该用户, 正在等待处理").ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "You’ve already reported this user; awaiting review.").ConfigureAwait(false);
             return;
         }
 
@@ -379,7 +379,7 @@ public partial class MareHub
 
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        await Clients.User(dto.User.UID).Client_ReceiveServerMessage(MessageSeverity.Warning, "你已被举报，正在等待处理").ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_ReceiveServerMessage(MessageSeverity.Warning, "You have been reported and are awaiting review.").ConfigureAwait(false);
 
         var allPairedUsers = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
         var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
@@ -393,19 +393,19 @@ public partial class MareHub
     {
         _logger.LogCallInfo(MareHubLogger.Args(dto));
 
-        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new HubException("你只能修改你自己的档案");
+        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new HubException("You can only edit your own profile.");
 
         var existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
 
         if (existingData?.FlaggedForReport ?? false)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "你有待处理的举报").ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "You have a pending report.").ConfigureAwait(false);
             return;
         }
 
         if (existingData?.ProfileDisabled ?? false)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "你的档案已被禁用，无法编辑").ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your profile is disabled and cannot be edited.").ConfigureAwait(false);
             return;
         }
 
@@ -416,14 +416,14 @@ public partial class MareHub
             var format = await Image.DetectFormatAsync(ms).ConfigureAwait(false);
             if (!format.FileExtensions.Contains("png", StringComparer.OrdinalIgnoreCase))
             {
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "图片必须为png格式").ConfigureAwait(false);
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Image must be PNG format.").ConfigureAwait(false);
                 return;
             }
             using var image = Image.Load<Rgba32>(imageData);
 
             if (image.Width > 256 || image.Height > 256 || (imageData.Length > 250 * 1024))
             {
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "图片不能大于 256x256 且不能大于 250KB.").ConfigureAwait(false);
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Image must be ≤256×256 and ≤250 KB.").ConfigureAwait(false);
                 return;
             }
         }

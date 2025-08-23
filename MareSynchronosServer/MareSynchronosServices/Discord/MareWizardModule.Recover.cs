@@ -24,9 +24,9 @@ public partial class MareWizardModule
             + "## ⚠️ **一旦你获取了新秘钥，旧密钥将会失效. 如果你在多台电脑使用Mare需要在每一处都更新密钥.** ⚠️" + Environment.NewLine + Environment.NewLine
             + "下面的选择框来选取需要恢复的UID。" + Environment.NewLine + Environment.NewLine
             + "- 1️⃣ 是你的主要账号/UID" + Environment.NewLine
-            + "- 2️⃣ 是你所有的辅助UID" + Environment.NewLine
-            + "如果你在使用个性 UID的话，原始的UID会在账号选项的第二行显示。" + Environment.NewLine
-            + "# 注意: 建议使用OAuth2登录而非密钥, 将在不久的未来取消密钥登录.");
+            + "- 2️⃣ 是你所有的Secondary UID" + Environment.NewLine
+            + "如果你在使用Vanity UID的话，原始的UID会在账号选项的第二行显示。" + Environment.NewLine
+            + "# 注意: 建议使用OAuth2登录而非密钥, 将在不久的未来Cancel密钥登录.");
         ComponentBuilder cb = new();
         await AddUserSelection(mareDb, cb, "wizard-recover-select").ConfigureAwait(false);
         AddHome(cb);

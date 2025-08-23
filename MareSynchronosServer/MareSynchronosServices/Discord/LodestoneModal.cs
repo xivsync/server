@@ -7,9 +7,9 @@ namespace MareSynchronosServices.Discord;
 
 public class LodestoneModal : IModal
 {
-    public string Title => "通过石之家认证";
+    public string Title => "Lodestone Verification";
 
-    [InputLabel("输入您角色的石之家 UID")]
+    [InputLabel("Enter Your Lode Stone Characters UID")]
     [ModalTextInput("lodestone_url", TextInputStyle.Short, "10000000")]
     public string LodestoneUrl { get; set; }
 }

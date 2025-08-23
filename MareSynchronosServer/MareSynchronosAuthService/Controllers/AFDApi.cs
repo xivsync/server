@@ -43,7 +43,7 @@ public class AFDApi
         public string PlanId { get; set; } //方案ID，如自选，则为空
 
         [JsonPropertyName("month")]
-        public int Month { get; set; } //赞助月份
+        public int Month { get; set; } //Support月份
 
         [JsonPropertyName("total_amount")]
         public string TotalAmount { get; set; }

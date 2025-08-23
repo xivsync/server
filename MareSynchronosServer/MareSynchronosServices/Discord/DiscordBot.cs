@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Discord;
 using Discord.Interactions;
 using Discord.Rest;
@@ -126,8 +126,8 @@ internal class DiscordBot : IHostedService
         if (user == null || (!user.User.IsModerator && !user.User.IsAdmin))
         {
             EmbedBuilder eb = new();
-            eb.WithTitle($"权限不足");
-            eb.WithDescription($"<@{userId}>: 你没有权限处理举报");
+            eb.WithTitle($"Insufficient permissions");
+            eb.WithDescription($"<@{userId}>: you do not have permission to handle reports");
             await arg.RespondAsync(embed: eb.Build(), ephemeral:true).ConfigureAwait(false);
             return;
         }
@@ -144,45 +144,45 @@ internal class DiscordBot : IHostedService
         switch (split[0])
         {
             case "dismiss":
-                builder.AddField("决议", $"举报被管理员 <@{userId}> 撤销");
+                builder.AddField("Resolution", $"Report dismissed by administrator <@{userId}>");
                 builder.WithColor(Color.Green);
                 profile.FlaggedForReport = false;
-                await SendMessageToClients("一个针对你的举报已被撤销.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
+                await SendMessageToClients("A report against you has been dismissed.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                //         MessageSeverity.Warning, "一个针对你的举报已被撤销.")
+                //         MessageSeverity.Warning, "A report against you has been dismissed.")
                 //     .ConfigureAwait(false);
                 break;
 
             case "banreporting":
-                builder.AddField("决议", $"举报被管理员 <@{userId}> 撤销, 举报人被封禁");
+                builder.AddField("Resolution", $"Report dismissed by administrator <@{userId}>, reporting user has been banned");
                 builder.WithColor(Color.DarkGreen);
                 profile.FlaggedForReport = false;
                 var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
                 reportingUser.MarkForBan = true;
                 var regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
                 BanAuth(dbContext, regReporting);
-                await SendMessageToClients("一个针对你的举报已被撤销.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
+                await SendMessageToClients("A report against you has been dismissed.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                //         MessageSeverity.Warning, "一个针对你的举报已被撤销.")
+                //         MessageSeverity.Warning, "A report against you has been dismissed.")
                 //     .ConfigureAwait(false);
                 break;
 
             // case "banprofile":
-            //     builder.AddField("决议", $"档案被管理员 <@{userId}> 封禁");
+            //     builder.AddField("Resolution", $"Profile has been banned by administrator <@{userId}>");
             //     builder.WithColor(Color.Red);
             //     profile.Base64ProfileImage = null;
             //     profile.UserDescription = null;
             //     profile.ProfileDisabled = true;
             //     profile.FlaggedForReport = false;
-            //     await SendMessageToClients("因一个针对你的举报, 你的档案将被封禁, 如需申诉请前往MareCN Discord寻找管理员.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
+            //     await SendMessageToClients("Due to a report against you, your profile will be banned. To appeal, please contact administrator.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
             //
             //     // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-            //     //     MessageSeverity.Warning, "因一个针对你的举报, 你的档案将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
+            //     //     MessageSeverity.Warning, "Due to a report against you, your profile will be banned. To appeal, please contact administrator.")
             //     //     .ConfigureAwait(false);
             //     break;
 
             case "banuser":
-                builder.AddField("决议", $"用户被管理员 <@{userId}> 封禁");
+                builder.AddField("Resolution", $"User has been banned by administrator <@{userId}>");
                 builder.WithColor(Color.DarkRed);
                 var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
                 offendingUser.MarkForBan = true;
@@ -191,13 +191,13 @@ internal class DiscordBot : IHostedService
                 profile.ProfileDisabled = true;
                 var reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
                 BanAuth(dbContext, reg);
-                await SendMessageToClients("因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
+                await SendMessageToClients("Due to a report against you, your account will be banned. To appeal, please contact an administrator in the MareCN Discord.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
                 // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                //     MessageSeverity.Warning, "因一个针对你的举报, 你的账号将被封禁, 如需申诉请前往MareCN Discord寻找管理员.")
+                //     MessageSeverity.Warning, "Due to a report against you, your account will be banned. To appeal, please contact an administrator in the MareCN Discord.")
                 //     .ConfigureAwait(false);
                 break;
             case "banboth":
-                builder.AddField("决议", $"双方用户均被管理员 <@{userId}> 封禁");
+                builder.AddField("Resolution", $"Both users have been banned by administrator <@{userId}>");
                 builder.WithColor(Color.DarkRed);
                 offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
                 offendingUser.MarkForBan = true;
@@ -365,12 +365,12 @@ internal class DiscordBot : IHostedService
     private async Task GenerateOrUpdateWizardMessage(SocketTextChannel channel, IUserMessage? prevMessage)
     {
         EmbedBuilder eb = new EmbedBuilder();
-        eb.WithTitle("Mare Services 机器人交互服务");
-        eb.WithDescription("点击 \"开始\" 按钮来开始与此机器人互动！" + Environment.NewLine + Environment.NewLine
-            + "您可以通过简单易用的交互式机器人，在此服务器上处理您对 Mare 账户的所有需求。只需按照说明操作即可！");
-        eb.WithThumbnailUrl("https://raw.githubusercontent.com/Penumbra-Sync/repo/main/MareSynchronos/images/icon.png");
+        eb.WithTitle("XIV Sync Services Bot Interaction");
+        eb.WithDescription("Click \"Start\" to begin interacting with this bot!" + Environment.NewLine + Environment.NewLine
+            + "You can manage all your XIV Sync account needs on this server using this simple interactive bot. Just follow the instructions!");
+        eb.WithThumbnailUrl("https://i.ibb.co/wr8hhnh0/Screenshot-2025-08-22-033336.png");
         var cb = new ComponentBuilder();
-        cb.WithButton("开始", style: ButtonStyle.Primary, customId: "wizard-captcha:true", emote: Emoji.Parse("➡️"));
+        cb.WithButton("Start", style: ButtonStyle.Primary, customId: "wizard-captcha:true", emote: Emoji.Parse("➡️"));
         if (prevMessage == null)
         {
             var msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
@@ -463,7 +463,7 @@ internal class DiscordBot : IHostedService
                             await dbContext.SaveChangesAsync().ConfigureAwait(false);
                         }
                         EmbedBuilder eb = new();
-                        eb.WithTitle("Mare 举报");
+                        eb.WithTitle("Mare Report");
 
                         StringBuilder reportedUserSb = new();
                         StringBuilder reportingUserSb = new();
@@ -477,19 +477,19 @@ internal class DiscordBot : IHostedService
                         {
                             reportingUserSb.AppendLine($" (<@{reportingUserLodestone.DiscordId}>)");
                         }
-                        eb.AddField("被举报用户", reportedUserSb.ToString());
-                        eb.AddField("举报用户", reportingUserSb.ToString());
-                        eb.AddField("举报时间", $"<t:{new DateTimeOffset(report.ReportDate).ToUnixTimeSeconds()}:f>");
-                        eb.AddField("举报原因", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
-                        eb.AddField("被举报用户档案", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
-                        eb.AddField("档案是NSFW", reportedUserProfile.IsNSFW ? "是" : "否");
+                        eb.AddField("Reported User", reportedUserSb.ToString());
+                        eb.AddField("Reporting User", reportingUserSb.ToString());
+                        eb.AddField("Report Time", $"<t:{new DateTimeOffset(report.ReportDate).ToUnixTimeSeconds()}:f>");
+                        eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
+                        eb.AddField("Reported User Profile", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
+                        eb.AddField("Profile is NSFW", reportedUserProfile.IsNSFW ? "Yes" : "No");
 
                         var cb = new ComponentBuilder();
-                        cb.WithButton("撤销举报", customId: $"mare-report-button-dismiss-{reportedUser.UID}", style: ButtonStyle.Primary);
+                        cb.WithButton("Dismiss Report", customId: $"mare-report-button-dismiss-{reportedUser.UID}", style: ButtonStyle.Primary);
                         //cb.WithButton("Ban profile", customId: $"mare-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
-                        cb.WithButton("封禁用户", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
-                        cb.WithButton("撤销并封禁举报者", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
-                        cb.WithButton("封禁双方", customId: $"mare-report-button-banboth-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("Ban User", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("Dismiss & Ban Reporter", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("Ban Both", customId: $"mare-report-button-banboth-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
 
 
                         RestUserMessage msg = null;
@@ -498,7 +498,7 @@ internal class DiscordBot : IHostedService
                             var fileName = reportedUser.UID + "_profile_" + Guid.NewGuid().ToString("N") + ".png";
                             eb.WithImageUrl($"attachment://{fileName}");
                             using MemoryStream ms = new(Convert.FromBase64String(reportedUserProfile.Base64ProfileImage));
-                            msg = await restChannel.SendFileAsync(ms, fileName, "用户举报", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
+                            msg = await restChannel.SendFileAsync(ms, fileName, "User Report", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
                         }
                         else
                         {
@@ -507,13 +507,13 @@ internal class DiscordBot : IHostedService
 
                         var thread = await restChannel.CreateThreadAsync(
                             type: ThreadType.PrivateThread,
-                            name: $"举报: {reportingUser.UID} -> {reportedUser.UID}",
+                            name: $"Report: {reportingUser.UID} -> {reportedUser.UID}",
                             invitable: true,
                             autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
 
                         dbContext.Remove(report);
 
-                        await thread.SendMessageAsync($"请双方 <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> 在72h内提供相关资料供 <@&1301329024680857692> 进行讨论.").ConfigureAwait(false);
+                        await thread.SendMessageAsync($"Both parties <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> please provide relevant information within 72 hours for <@&1301329024680857692> to review.").ConfigureAwait(false);
                     }
 
                     await dbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -725,7 +725,7 @@ internal class DiscordBot : IHostedService
             var onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "UID:*").CountAsync().ConfigureAwait(false);
 
             _logger.LogDebug("Users online: " + onlineUsers);
-            await _discordClient.SetActivityAsync(new Game(onlineUsers + " MareCN用户在线")).ConfigureAwait(false);
+            await _discordClient.SetActivityAsync(new Game(onlineUsers + " XIV Sync users online")).ConfigureAwait(false);
             await Task.Delay(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
         }
     }
@@ -742,7 +742,7 @@ internal class DiscordBot : IHostedService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "消息发送失败: ");
+            _logger.LogError(ex, "Failed to send message: ");
         }
     }
 

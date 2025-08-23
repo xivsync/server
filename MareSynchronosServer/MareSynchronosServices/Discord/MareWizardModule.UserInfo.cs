@@ -18,11 +18,11 @@ public partial class MareWizardModule
         EmbedBuilder eb = new();
         eb.WithTitle("User Info");
         eb.WithColor(Color.Blue);
-        eb.WithDescription("在这里你能看到你的Mare用户信息。" + Environment.NewLine
+        eb.WithDescription("在这里你能看到你的MareUser Info。" + Environment.NewLine
             + "用下面的选择框来选取需要查看信息的UID" + Environment.NewLine + Environment.NewLine
             + "- 1️⃣ 是你的主要账号/UID" + Environment.NewLine
-            + "- 2️⃣ 是你所有的辅助UID" + Environment.NewLine
-            + "如果你在使用个性 UID的话，原始的UID会在账号选项的第二行显示。");
+            + "- 2️⃣ 是你所有的Secondary UID" + Environment.NewLine
+            + "如果你在使用Vanity UID的话，原始的UID会在账号选项的第二行显示。");
         ComponentBuilder cb = new();
         await AddUserSelection(mareDb, cb, "wizard-userinfo-select").ConfigureAwait(false);
         AddHome(cb);
@@ -38,7 +38,7 @@ public partial class MareWizardModule
 
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
-        eb.WithTitle($"用户信息: {uid}");
+        eb.WithTitle($"User Info: {uid}");
         await HandleUserInfo(eb, mareDb, uid).ConfigureAwait(false);
         eb.WithColor(Color.Green);
         ComponentBuilder cb = new();
@@ -57,10 +57,10 @@ public partial class MareWizardModule
         var groupsJoined = await db.GroupPairs.Where(g => g.GroupUserUID == dbUser.UID).ToListAsync().ConfigureAwait(false);
         var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("UID:" + dbUser.UID).ConfigureAwait(false);
 
-        eb.WithDescription("这是你选中的UID的信息，你可以在下方菜单检查其他UID的信息，或者返回主菜单。" + Environment.NewLine);
+        eb.WithDescription("这是你选中的UID的信息，你可以在下方菜单检查其他UID的信息，或者Back to main menu。" + Environment.NewLine);
         if (!string.IsNullOrEmpty(dbUser.Alias))
         {
-            eb.AddField("个性 UID", dbUser.Alias);
+            eb.AddField("Vanity UID", dbUser.Alias);
         }
         eb.AddField("上一次在线(本地时间)", $"<t:{new DateTimeOffset(dbUser.LastLoggedIn.ToUniversalTime()).ToUnixTimeSeconds()}:f>");
         eb.AddField("目前是否在线", !string.IsNullOrEmpty(identity));

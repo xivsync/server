@@ -25,7 +25,7 @@ public partial class MareWizardModule
             + "- 不要在移动设备上使用此功能，因为您需要能够复制生成的密钥");
         ComponentBuilder cb = new();
         AddHome(cb);
-        cb.WithButton("开始重新连接", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔗"));
+        cb.WithButton("Start重新连接", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔗"));
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -56,7 +56,7 @@ public partial class MareWizardModule
         eb.WithColor(Color.Purple);
         var result = await HandleRelinkModalAsync(eb, lodestoneModal).ConfigureAwait(false);
         ComponentBuilder cb = new();
-        cb.WithButton("取消", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
+        cb.WithButton("Cancel", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
         if (result.Success) cb.WithButton("验证", "wizard-relink-verify:" + result.LodestoneAuth + "," + result.UID, ButtonStyle.Primary, emote: new Emoji("✅"));
         else cb.WithButton("重试", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
         await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
@@ -75,7 +75,7 @@ public partial class MareWizardModule
         EmbedBuilder eb = new();
         ComponentBuilder cb = new();
         eb.WithColor(Color.Purple);
-        cb.WithButton("取消", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
+        cb.WithButton("Cancel", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
         cb.WithButton("检查", "wizard-relink-verify-check:" + verificationCode + "," + uid, ButtonStyle.Primary, emote: new Emoji("❓"));
         eb.WithTitle("重新连接验证待定");
         eb.WithDescription("请等待机器人验证您的注册。" + Environment.NewLine
@@ -103,7 +103,7 @@ public partial class MareWizardModule
                 eb.WithColor(Color.Gold);
                 eb.WithTitle("您的重新链接验证仍在等待中");
                 eb.WithDescription("请重试并在几秒钟后单击“检查”");
-                cb.WithButton("取消", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
+                cb.WithButton("Cancel", "wizard-relink", ButtonStyle.Secondary, emote: new Emoji("❌"));
                 cb.WithButton("检查", "wizard-relink-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
             }
             else
@@ -144,7 +144,7 @@ public partial class MareWizardModule
                     + "**请确保你的资料已设置为公开，否则机器人将无法获取对应的内容.**" + Environment.NewLine + Environment.NewLine
                     + "机器人正在寻找的代码是" + Environment.NewLine + Environment.NewLine
                     + "**`" + verificationCode + "`**");
-                cb.WithButton("取消", "wizard-relink", emote: new Emoji("❌"));
+                cb.WithButton("Cancel", "wizard-relink", emote: new Emoji("❌"));
                 cb.WithButton("重试", "wizard-relink-verify:" + verificationCode + "," + uid, ButtonStyle.Primary, emote: new Emoji("🔁"));
             }
         }
@@ -198,7 +198,7 @@ public partial class MareWizardModule
                               + Environment.NewLine + Environment.NewLine
                               + $"**! 这不是您在 MARE 中需要输入的密钥 !**"
                               + Environment.NewLine
-                              + "__验证后，您可以从您的个人简介中删除该条目。__"
+                              + "__验证后，您可以从您的个人简介中Delete该条目。__"
                               + Environment.NewLine + Environment.NewLine
                               + "验证将在大约 15 分钟后过期。 若验证不通过，则注册无效，需重新注册。");
         _botServices.DiscordRelinkLodestoneMapping[Context.User.Id] = lodestoneId.ToString();

@@ -25,18 +25,18 @@ public partial class MareWizardModule
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
         eb.WithColor(Color.Gold);
-        eb.WithTitle("赞助者界面");
+        eb.WithTitle("Support者界面");
 
         ComponentBuilder cb = new();
-        cb.WithButton(label:"赞助5元", url: GetAddress(Plan5), style: ButtonStyle.Link, emote: new Emoji("💎"));
-        cb.WithButton(label:"赞助10元", url: GetAddress(Plan10), style: ButtonStyle.Link, emote: new Emoji("💎"));
+        cb.WithButton(label:"Support5元", url: GetAddress(Plan5), style: ButtonStyle.Link, emote: new Emoji("💎"));
+        cb.WithButton(label:"Support10元", url: GetAddress(Plan10), style: ButtonStyle.Link, emote: new Emoji("💎"));
         cb.WithButton(label: "刷新", customId: "wizard-support", ButtonStyle.Secondary, new Emoji("🔄"));
-        cb.WithButton("返回主菜单", "wizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"), row: 1);
+        cb.WithButton("Back to main menu", "wizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"), row: 1);
 
         var user = await mareDb.Supports.AsNoTracking().FirstOrDefaultAsync(x => x.DiscordId == Context.User.Id).ConfigureAwait(false);
         if (user is null)
         {
-            eb.WithDescription("未找到你的赞助信息, 如有疑问请联系管理员.");
+            eb.WithDescription("未找到你的Support信息, 如有疑问请联系管理员.");
         }
         else if (user.UserId is not null && user.LastOrder is not null && user.ExpiresAt is not null)
         {
@@ -48,10 +48,10 @@ public partial class MareWizardModule
                     .ConfigureAwait(false);
             }
 
-            eb.AddField("赞助到期时间:",
+            eb.AddField("Support到期时间:",
                 $"<t:{new DateTimeOffset(user.ExpiresAt.Value.ToUniversalTime()).ToUnixTimeSeconds()}:f>");
-            eb.AddField("最近一次赞助订单号:", $"{user.LastOrder}");
-            eb.AddField("最近一次赞助的用户ID", $"{user.UserId}");
+            eb.AddField("最近一次Support订单号:", $"{user.LastOrder}");
+            eb.AddField("最近一次Support的用户ID", $"{user.UserId}");
         }
         else
         {

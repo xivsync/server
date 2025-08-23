@@ -17,12 +17,12 @@ public partial class MareWizardModule
 
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
-        eb.WithTitle("删除账号");
-        eb.WithDescription("你可以在此删除你的主要或者辅助UID。" + Environment.NewLine + Environment.NewLine
-            + "__注意: 删除你的主要 UID也会同时删除所有的辅助UID。__" + Environment.NewLine + Environment.NewLine
+        eb.WithTitle("Delete账号");
+        eb.WithDescription("你可以在此Delete你的主要或者Secondary UID。" + Environment.NewLine + Environment.NewLine
+            + "__注意: Delete你的主要 UID也会同时Delete所有的Secondary UID。__" + Environment.NewLine + Environment.NewLine
             + "- 1️⃣ 是你的主要账号/UID" + Environment.NewLine
-            + "- 2️⃣ 是你所有的辅助UID" + Environment.NewLine
-            + "如果你在使用个性 UID的话，原始的UID会在账号选项的第二行显示。");
+            + "- 2️⃣ 是你所有的Secondary UID" + Environment.NewLine
+            + "如果你在使用Vanity UID的话，原始的UID会在账号选项的第二行显示。");
         eb.WithColor(Color.Blue);
 
         ComponentBuilder cb = new();
@@ -41,15 +41,15 @@ public partial class MareWizardModule
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         bool isPrimary = mareDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID == null;
         EmbedBuilder eb = new();
-        eb.WithTitle($"你确定要删除 {uid} 吗？");
+        eb.WithTitle($"你确定要Delete {uid} 吗？");
         eb.WithDescription($"此操作不可逆转。你所有的配对，加入的同步贝，储存在 {uid} 账号上所有的信息都会被" +
-            $"不可逆的删除。" +
+            $"不可逆的Delete。" +
             (isPrimary ? (Environment.NewLine + Environment.NewLine +
-            "⚠️ **你即将删除一个主要UID，所有的辅助UID也会被同时删除。** ⚠️") : string.Empty));
+            "⚠️ **你即将Delete一个主要UID，所有的Secondary UID也会被同时Delete。** ⚠️") : string.Empty));
         eb.WithColor(Color.Purple);
         ComponentBuilder cb = new();
-        cb.WithButton("取消", "wizard-delete", emote: new Emoji("❌"));
-        cb.WithButton($"删除 {uid}", "wizard-delete-confirm:" + uid, ButtonStyle.Danger, emote: new Emoji("🗑️"));
+        cb.WithButton("Cancel", "wizard-delete", emote: new Emoji("❌"));
+        cb.WithButton($"Delete {uid}", "wizard-delete-confirm:" + uid, ButtonStyle.Danger, emote: new Emoji("🗑️"));
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -79,7 +79,7 @@ public partial class MareWizardModule
                 eb.WithDescription($"你输入了 {modal.Delete} 但是要求的是 DELETE。请重新尝试并输入 DELETE 来确认。");
                 eb.WithColor(Color.Red);
                 ComponentBuilder cb = new();
-                cb.WithButton("取消", "wizard-delete", emote: new Emoji("❌"));
+                cb.WithButton("Cancel", "wizard-delete", emote: new Emoji("❌"));
                 cb.WithButton("重试", "wizard-delete-confirm:" + uid, emote: new Emoji("🔁"));
 
                 await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
@@ -94,7 +94,7 @@ public partial class MareWizardModule
                 await SharedDbFunctions.PurgeUser(_logger, user, db, maxGroupsByUser).ConfigureAwait(false);
 
                 EmbedBuilder eb = new();
-                eb.WithTitle($"账号 {uid} 成功删除");
+                eb.WithTitle($"账号 {uid} 成功Delete");
                 eb.WithColor(Color.Green);
                 ComponentBuilder cb = new();
                 AddHome(cb);

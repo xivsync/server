@@ -49,7 +49,7 @@ public class JwtController : AuthControllerBase
                 var userAuth = await dbContext.Auth.SingleAsync(u => u.UserUID == uid);
                 await EnsureBan(uid, userAuth.PrimaryUserUID, ident);
 
-                return Unauthorized("你的Mare账号已被封禁.");
+                return Unauthorized("Your Mare account is banned.");
             }
 
             if (await IsIdentBanned(dbContext, ident))
@@ -64,7 +64,7 @@ public class JwtController : AuthControllerBase
         catch (Exception ex)
         {
             Logger.LogError(ex, "RenewToken:FAILURE");
-            return Unauthorized("更新身份验证令牌时出现未知错误.");
+            return Unauthorized("Unknown error updating auth token.");
         }
     }
 
@@ -84,7 +84,7 @@ public class JwtController : AuthControllerBase
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Authenticate:UNKNOWN");
-            return Unauthorized("验证时出现未知服务器错误");
+            return Unauthorized("Unknown server error during validation");
         }
     }
 }

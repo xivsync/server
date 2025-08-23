@@ -46,24 +46,24 @@ public abstract class AuthControllerBase : Controller
         if (await IsIdentBanned(dbContext, charaIdent))
         {
             Logger.LogWarning("Authenticate:IDENTBAN:{id}:{ident}", authResult.Uid, charaIdent);
-            return Unauthorized("你的FF账号被禁止使用本服务.");
+            return Unauthorized("Your FFXIV account is banned from this service.");
         }
 
         if (machineId is not null && await IsIdentBanned(dbContext, machineId))
         {
             Logger.LogWarning("Authenticate:MachineBAN:{id}:{ident}", authResult.Uid, machineId);
-            return Unauthorized("你被禁止使用本服务.");
+            return Unauthorized("You are banned from this service.");
         }
 
         if (!authResult.Success && !authResult.TempBan)
         {
             Logger.LogWarning("Authenticate:INVALID:{id}:{ident}", authResult?.Uid ?? "NOUID", charaIdent);
-            return Unauthorized("密钥无效. 请确认你的Mare账户存在或尝试重新关联DC账户.");
+            return Unauthorized("Invalid key. Ensure your Mare account exists or try relinking Discord.");
         }
         if (!authResult.Success && authResult.TempBan)
         {
             Logger.LogWarning("Authenticate:TEMPBAN:{id}:{ident}", authResult.Uid ?? "NOUID", charaIdent);
-            return Unauthorized("失败次数过多, 你已被暂时封禁. 请检查你的密钥设置并在5分钟后重试.");
+            return Unauthorized("Too many failures; you’re temporarily blocked. Check your key and try again in 5 minutes.");
         }
 
         if (authResult.Permaban || authResult.MarkedForBan)
@@ -76,14 +76,14 @@ public abstract class AuthControllerBase : Controller
             }
 
             Logger.LogWarning("Authenticate:UIDBAN:{id}:{ident}", authResult.Uid, charaIdent);
-            return Unauthorized("你的Mare账号已被封禁.");
+            return Unauthorized("Your Mare account is banned.");
         }
 
         var existingIdent = await _redis.StringGetAsync("UID:" + authResult.Uid);
         if (!string.IsNullOrEmpty(existingIdent))
         {
             Logger.LogWarning("Authenticate:DUPLICATE:{id}:{ident}", authResult.Uid, charaIdent);
-            return Unauthorized("该Mare账号已经登录. 将在60秒后尝试重新登录. 如果依旧无法登录, 请重启游戏.");
+            return Unauthorized("This account is already logged in. We’ll retry in 60 seconds; if it persists, restart the game.");
         }
 
         Logger.LogInformation("Authenticate:SUCCESS:{id}:{ident}", authResult.Uid, charaIdent);
