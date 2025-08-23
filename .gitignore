@@ -13,6 +13,11 @@
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
+
+# Windows Zone.Identifier alternate data streams
+*Zone.Identifier
+*:Zone.Identifier
+
 # Mono auto generated files
 mono_crash.*
 

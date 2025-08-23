@@ -1,3 +1,4 @@
 [submodule "MareAPI"]
 	path = MareAPI
 	url = https://github.com/xivsync/api.git
+	branch = main
