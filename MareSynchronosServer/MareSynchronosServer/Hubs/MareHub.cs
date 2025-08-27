@@ -67,6 +67,11 @@ public partial class MareHub : Hub<IMareHub>, IMareHub
         _gPoseLobbyDistributionService = gPoseLobbyDistributionService;
         _logger = new MareHubLogger(this, logger);
         _dbContextLazy = new Lazy<MareDbContext>(() => mareDbContextFactory.CreateDbContext());
+
+	_maxExistingGroupsByUser = 10;
+	_maxJoinedGroupsByUser   = 20;
+	_maxGroupUserCount       = 100;
+
     }
 
     protected override void Dispose(bool disposing)

@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using MareSynchronosShared.Utils;
 using MareSynchronos.API.Routes;
 using MareSynchronosShared.Utils.Configuration;
+using System.Diagnostics;
 
 namespace MareSynchronosStaticFilesServer.Services;
 
@@ -180,22 +181,60 @@ public sealed class CachedFileProvider : IDisposable
         return new FileInfo(fi.FullName);
     }
 
-    public async Task<FileInfo?> DownloadAndGetLocalFileInfo(string hash)
-    {
-        await DownloadFileWhenRequired(hash).ConfigureAwait(false);
+public async Task<FileInfo?> DownloadAndGetLocalFileInfo(string hash)
+{
+    var swTotal = Stopwatch.StartNew();
+    _logger.LogDebug("CFP:GetLocal ENTER hash={Hash}", hash);
 
+    try
+    {
+        // 1) Kick off / ensure download
+        var swKick = Stopwatch.StartNew();
+        try
+        {
+            _logger.LogDebug("CFP:GetLocal kick DownloadFileWhenRequired hash={Hash}", hash);
+            await DownloadFileWhenRequired(hash).ConfigureAwait(false);
+            _logger.LogDebug("CFP:GetLocal kick DONE hash={Hash}, ms={Ms}", hash, swKick.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "CFP:GetLocal DownloadFileWhenRequired FAILED hash={Hash}, ms={Ms}",
+                hash, swKick.ElapsedMilliseconds);
+            // continue — we’ll still check local cache below
+        }
+
+        // 2) If there’s an active transfer, wait (with timeout) and log status
         if (_currentTransfers.TryGetValue(hash, out var downloadTask))
         {
+            _logger.LogDebug(
+                "CFP:GetLocal wait begin hash={Hash}, taskStatus={Status}, isCompleted={Completed}, isFaulted={Faulted}",
+                hash, downloadTask.Status, downloadTask.IsCompleted, downloadTask.IsFaulted);
+
+            using CancellationTokenSource cts = new();
+            // keep same 300s from your original code
+            cts.CancelAfter(TimeSpan.FromSeconds(300));
+
+            _metrics.IncGauge(MetricsAPI.GaugeFilesTasksWaitingForDownloadFromCache);
+            var swWait = Stopwatch.StartNew();
             try
             {
-                using CancellationTokenSource cts = new();
-                cts.CancelAfter(TimeSpan.FromSeconds(300));
-                _metrics.IncGauge(MetricsAPI.GaugeFilesTasksWaitingForDownloadFromCache);
                 await downloadTask.WaitAsync(cts.Token).ConfigureAwait(false);
+                _logger.LogDebug(
+                    "CFP:GetLocal wait done hash={Hash}, taskStatus={Status}, ms={Ms}",
+                    hash, downloadTask.Status, swWait.ElapsedMilliseconds);
+            }
+            catch (OperationCanceledException oce)
+            {
+                _logger.LogWarning(oce,
+                    "CFP:GetLocal TIMEOUT waiting for download task hash={Hash}, waitedMs={Ms}",
+                    hash, swWait.ElapsedMilliseconds);
+                return null;
             }
             catch (Exception e)
             {
-                _logger.LogWarning(e, "Failed while waiting for download task for {hash}", hash);
+                _logger.LogWarning(e,
+                    "CFP:GetLocal EXCEPTION while waiting for download task hash={Hash}, waitedMs={Ms}",
+                    hash, swWait.ElapsedMilliseconds);
                 return null;
             }
             finally
@@ -203,9 +242,45 @@ public sealed class CachedFileProvider : IDisposable
                 _metrics.DecGauge(MetricsAPI.GaugeFilesTasksWaitingForDownloadFromCache);
             }
         }
+        else
+        {
+            _logger.LogDebug("CFP:GetLocal no active transfer entry hash={Hash}", hash);
+        }
 
-        return GetLocalFilePath(hash);
+        // 3) Final local file check
+        var fi = GetLocalFilePath(hash);
+        if (fi == null)
+        {
+            _logger.LogWarning("CFP:GetLocal GetLocalFilePath returned NULL hash={Hash}, totalMs={Ms}",
+                hash, swTotal.ElapsedMilliseconds);
+            return null;
+        }
+
+        // Refresh and report existence/size
+        fi.Refresh();
+        if (fi.Exists)
+        {
+            _logger.LogInformation("CFP:GetLocal HIT hash={Hash}, bytes={Bytes}, path={Path}, totalMs={Ms}",
+                hash, fi.Length, fi.FullName, swTotal.ElapsedMilliseconds);
+            return fi;
+        }
+        else
+        {
+            _logger.LogWarning("CFP:GetLocal MISS after wait hash={Hash}, path={Path}, totalMs={Ms}",
+                hash, fi.FullName, swTotal.ElapsedMilliseconds);
+            return null;
+        }
     }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "CFP:GetLocal ERROR hash={Hash}, totalMs={Ms}", hash, swTotal.ElapsedMilliseconds);
+        return null;
+    }
+    finally
+    {
+        _logger.LogDebug("CFP:GetLocal EXIT hash={Hash}, totalMs={Ms}", hash, swTotal.ElapsedMilliseconds);
+    }
+}
 
     public bool AnyFilesDownloading(List<string> hashes)
     {
