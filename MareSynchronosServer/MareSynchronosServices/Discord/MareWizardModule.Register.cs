@@ -1,9 +1,13 @@
-using Discord.Interactions;
+﻿using Discord.Interactions;
 using Discord;
 using MareSynchronosShared.Data;
 using Microsoft.EntityFrameworkCore;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Models;
+using MareSynchronosShared.Services;
+using MareSynchronosShared.Utils.Configuration;
+using Discord.Rest;
+using Discord.WebSocket;
 
 namespace MareSynchronosServices.Discord;
 
@@ -19,13 +23,11 @@ public partial class MareWizardModule
         EmbedBuilder eb = new();
         eb.WithColor(Color.Blue);
         eb.WithTitle("Start Registration");
-        eb.WithDescription(
-            "Here you can start registering to use this server's Mare Synchronos service." + Environment.NewLine + Environment.NewLine
-            + "- Have your Lodestone UID ready (e.g., 10000000)" + Environment.NewLine
-            + "  - Registration requires you to edit your Lodestone profile with a generated verification code" + Environment.NewLine
-            + "- Do not use a mobile device for this step because you’ll need to copy the generated key" + Environment.NewLine
-            + "# Read the registration steps carefully. Take it slooow."
-        );
+        eb.WithDescription("Here you can start the registration process with the Mare Synchronos server of this Discord." + Environment.NewLine + Environment.NewLine
+            + "- Have your Lodestone URL ready (i.e. https://eu.finalfantasyxiv.com/lodestone/character/XXXXXXXXX)" + Environment.NewLine
+            + "  - The registration requires you to modify your Lodestone profile with a generated code for verification" + Environment.NewLine
+            + "- Do not use this on mobile because you will need to be able to copy the generated secret key" + Environment.NewLine
+            + "# Follow the bot instructions precisely. Slow down and read.");
         ComponentBuilder cb = new();
         AddHome(cb);
         cb.WithButton("Start Registration", "wizard-register-start", ButtonStyle.Primary, emote: new Emoji("🌒"));
@@ -66,7 +68,7 @@ public partial class MareWizardModule
         ComponentBuilder cb = new();
         cb.WithButton("Cancel", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
         if (success.Item1) cb.WithButton("Verify", "wizard-register-verify:" + success.Item2, ButtonStyle.Primary, emote: new Emoji("✅"));
-        else cb.WithButton("Retry", "wizard-register-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
+        else cb.WithButton("Try again", "wizard-register-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
         await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -84,12 +86,10 @@ public partial class MareWizardModule
         eb.WithColor(Color.Purple);
         cb.WithButton("Cancel", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
         cb.WithButton("Check", "wizard-register-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
-        eb.WithTitle("Pending Verification");
-        eb.WithDescription(
-            "Please wait while the bot verifies your registration." + Environment.NewLine
-            + "Press **Check** to see if verification has completed." + Environment.NewLine + Environment.NewLine
-            + "__This will not proceed automatically; you must press **Check**.__"
-        );
+        eb.WithTitle("Verification Pending");
+        eb.WithDescription("Please wait until the bot verifies your registration." + Environment.NewLine
+            + "Press \"Check\" to check if the verification has been already processed" + Environment.NewLine + Environment.NewLine
+            + "__This will not advance automatically, you need to press \"Check\".__");
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -111,16 +111,16 @@ public partial class MareWizardModule
             {
                 eb.WithColor(Color.Gold);
                 eb.WithTitle("Your verification is still pending");
-                eb.WithDescription("Please try again and click **Check** after a few seconds.");
+                eb.WithDescription("Please try again and click Check in a few seconds");
                 cb.WithButton("Cancel", "wizard-register", ButtonStyle.Secondary, emote: new Emoji("❌"));
                 cb.WithButton("Check", "wizard-register-verify-check:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("❓"));
             }
             else
             {
                 eb.WithColor(Color.Red);
-                eb.WithTitle("An error occurred");
-                eb.WithDescription("Your verification was processed but didn’t complete correctly. Please start registration from the beginning.");
-                cb.WithButton("Retry", "wizard-register", ButtonStyle.Primary, emote: new Emoji("🔁"));
+                eb.WithTitle("Something went wrong");
+                eb.WithDescription("Your verification was processed but did not arrive properly. Please try to start the registration from the start.");
+                cb.WithButton("Restart", "wizard-register", ButtonStyle.Primary, emote: new Emoji("🔁"));
             }
         }
         else
@@ -130,40 +130,38 @@ public partial class MareWizardModule
                 eb.WithColor(Color.Green);
                 using var db = await GetDbContext().ConfigureAwait(false);
                 var (uid, key) = await HandleAddUser(db).ConfigureAwait(false);
-                eb.WithTitle($"Registration successful. Your UID: {uid}");
-                eb.WithDescription(
-                    "This is your private key. Do not share it with anyone. **If you lose it, it’s gone forever.**"
-                    + Environment.NewLine + Environment.NewLine
-                    + "**__Note: This server currently does not support key login. Please use OAuth to connect.__**"
-                    + Environment.NewLine + Environment.NewLine
-                    + $"||**`{key}`**||"
-                    + Environment.NewLine + Environment.NewLine
-                    + "You don’t need to save this key."
-                    + Environment.NewLine
-                    + "__Note: The key only contains letters A–F and digits 0–9.__"
-                    + Environment.NewLine
-                    + "You should connect as soon as possible to avoid automatic cleanup."
-                    + Environment.NewLine
-                    + "Have fun."
-                );
+                eb.WithTitle($"Registration successful, your UID: {uid}");
+                eb.WithDescription("This is your private secret key. Do not share this private secret key with anyone. **If you lose it, it is irrevocably lost.**"
+                                             + Environment.NewLine + Environment.NewLine
+                                             + "**__NOTE: Secret keys are considered legacy. Using the suggested OAuth2 authentication in Mare, you do not need to use this Secret Key.__**"
+                                             + Environment.NewLine + Environment.NewLine
+                                             + $"||**`{key}`**||"
+                                             + Environment.NewLine + Environment.NewLine
+                                             + "If you want to continue using legacy authentication, enter this key in Mare Synchronos and hit save to connect to the service."
+                                             + Environment.NewLine
+                                             + "__NOTE: The Secret Key only contains the letters ABCDEF and numbers 0 - 9.__"
+                                             + Environment.NewLine
+                                             + "You should connect as soon as possible to not get caught by the automatic cleanup process."
+                                             + Environment.NewLine
+                                             + "Have fun.");
                 AddHome(cb);
                 registerSuccess = true;
             }
             else
             {
                 eb.WithColor(Color.Gold);
-                eb.WithTitle("Registration verification failed");
-                eb.WithDescription(
-                    "The bot couldn’t find the required verification code in your Lodestone profile."
+                eb.WithTitle("Failed to verify registration");
+                eb.WithDescription("The bot was not able to find the required verification code on your Lodestone profile."
                     + Environment.NewLine + Environment.NewLine
-                    + "Please restart the verification process and make sure to submit your profile _twice_ so it’s saved correctly."
+                    + "Please restart your verification process, make sure to save your profile _twice_ for it to be properly saved."
                     + Environment.NewLine + Environment.NewLine
-                    + "**Make sure your profile is public, otherwise the bot cannot read it.**"
+                    + "If this link does not lead to your profile edit page, you __need__ to configure the privacy settings first: https://na.finalfantasyxiv.com/lodestone/my/setting/profile/"
                     + Environment.NewLine + Environment.NewLine
-                    + "## You __must__ put the following text so the bot can detect it:"
+                    + "**Make sure your profile is set to public (All Users) for your character. The bot cannot read profiles with privacy settings set to \"logged in\" or \"private\".**"
                     + Environment.NewLine + Environment.NewLine
-                    + "**`" + verificationCode + "`**"
-                );
+                    + "## You __need__ to enter following the code this bot provided onto your Lodestone in the character profile:"
+                    + Environment.NewLine + Environment.NewLine
+                    + "**`" + verificationCode + "`**");
                 cb.WithButton("Cancel", "wizard-register", emote: new Emoji("❌"));
                 cb.WithButton("Retry", "wizard-register-verify:" + verificationCode, ButtonStyle.Primary, emote: new Emoji("🔁"));
             }
@@ -179,9 +177,9 @@ public partial class MareWizardModule
         var lodestoneId = ParseCharacterIdFromLodestoneUrl(arg.LodestoneUrl);
         if (lodestoneId == null)
         {
-            embed.WithTitle("Invalid UID");
-            embed.WithDescription("The Lodestone UID format is incorrect; it should look like:" + Environment.NewLine
-                + "10000000");
+            embed.WithTitle("Invalid Lodestone URL");
+            embed.WithDescription("The lodestone URL was not valid. It should have following format:" + Environment.NewLine
+                + "https://eu.finalfantasyxiv.com/lodestone/character/YOUR_LODESTONE_ID/");
             return (false, string.Empty);
         }
 
@@ -193,35 +191,33 @@ public partial class MareWizardModule
         // check if discord id or lodestone id is banned
         if (db.BannedRegistrations.Any(a => a.DiscordIdOrLodestoneAuth == hashedLodestoneId))
         {
-            embed.WithDescription("Account is banned");
+            embed.WithDescription("This account is banned");
             return (false, string.Empty);
         }
 
         if (db.LodeStoneAuth.Any(a => a.HashedLodestoneId == hashedLodestoneId))
         {
             // character already in db
-            embed.WithDescription("That Lodestone character already exists in the database. If you want to attach it to your current Discord account, use Relink.");
+            embed.WithDescription("This lodestone character already exists in the Database. If you want to attach this character to your current Discord account use relink.");
             return (false, string.Empty);
         }
 
         string lodestoneAuth = await GenerateLodestoneAuth(Context.User.Id, hashedLodestoneId, db).ConfigureAwait(false);
-        // instructions
-        embed.WithTitle("Verify your character");
-        embed.WithDescription(
-              "Add the following key to your character profile: https://ff14risingstones.web.sdo.com/pc/index.html#/me/settings/main"
-              + Environment.NewLine
-              + "__Note: If that link doesn’t open your profile, adjust your privacy settings!__"
-              + Environment.NewLine + Environment.NewLine
-              + $"**`{lodestoneAuth}`**"
-              + Environment.NewLine + Environment.NewLine
-              + "**This is NOT the key you enter in the Mare Synchronos plugin!**"
-              + Environment.NewLine + Environment.NewLine
-              + "After adding and saving, use the button below to verify and complete registration to receive your Mare Synchronos key."
-              + Environment.NewLine
-              + "__After verification, you can remove this entry from your profile.__"
-              + Environment.NewLine + Environment.NewLine
-              + "Verification expires in about 15 minutes. If verification fails, the registration is void and must be started again."
-        );
+        // check if lodestone id is already in db
+        embed.WithTitle("Authorize your character");
+        embed.WithDescription("Add following key to your character profile at https://na.finalfantasyxiv.com/lodestone/my/setting/profile/"
+                              + Environment.NewLine
+                              + "__NOTE: If the link does not lead you to your character edit profile page, you need to log in and set up your privacy settings!__"
+                              + Environment.NewLine + Environment.NewLine
+                              + $"**`{lodestoneAuth}`**"
+                              + Environment.NewLine + Environment.NewLine
+                              + $"**! THIS IS NOT THE KEY YOU HAVE TO ENTER IN MARE !**"
+                              + Environment.NewLine + Environment.NewLine
+                              + "Once added and saved, use the button below to Verify and finish registration and receive a secret key to use for Mare Synchronos."
+                              + Environment.NewLine
+                              + "__You can delete the entry from your profile after verification.__"
+                              + Environment.NewLine + Environment.NewLine
+                              + "The verification will expire in approximately 15 minutes. If you fail to verify the registration will be invalidated and you have to register again.");
         _botServices.DiscordLodestoneMapping[Context.User.Id] = lodestoneId.ToString();
 
         return (true, lodestoneAuth);
@@ -229,53 +225,38 @@ public partial class MareWizardModule
 
     private async Task HandleVerifyAsync(ulong userid, string authString, DiscordBotServices services)
     {
-        var req = new HttpClient();
-        var cookie = GetSZJCookie();
-        if (!string.IsNullOrEmpty(cookie))
-        {
-            // req.DefaultRequestHeaders.Add("Cookie", cookie);
-            req.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            _botServices.Logger.LogInformation("Set bot cookie to {botCookie}", cookie);
-        }
-        else
-        {
-            _botServices.Logger.LogError("Cannot get cookie for bot service");
-        }
+        using var req = new HttpClient();
 
         services.DiscordVerifiedUsers.Remove(userid, out _);
         if (services.DiscordLodestoneMapping.ContainsKey(userid))
         {
-            // var randomServer = services.LodestoneServers[random.Next(services.LodestoneServers.Length)];
-            var url = $"https://apiff14risingstones.web.sdo.com/api/common/search?type=6&keywords={services.DiscordLodestoneMapping[userid]}&part_id=&orderBy=time&page=1&limit=20";
-            var response = await req.GetAsync(url).ConfigureAwait(false);
+            var randomServer = services.LodestoneServers[random.Next(services.LodestoneServers.Length)];
+            var url = $"https://{randomServer}.finalfantasyxiv.com/lodestone/character/{services.DiscordLodestoneMapping[userid]}";
+            using var response = await req.GetAsync(url).ConfigureAwait(false);
             _logger.LogInformation("Verifying {userid} with URL {url}", userid, url);
-            services.DiscordVerifiedUsers[userid] = true;
-            _logger.LogInformation("Verified {userid} from lodestone {lodestone}", userid, services.DiscordLodestoneMapping[userid]);
-            await _botServices.LogToChannel($"<@{userid}> REGISTER VERIFY: Success.").ConfigureAwait(false);
-            services.DiscordLodestoneMapping.TryRemove(userid, out _);
-            // if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-            // {
-            //     var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            //     if (content.Contains(authString))
-            //     {
-            //         services.DiscordVerifiedUsers[userid] = true;
-            //         _logger.LogInformation("Verified {userid} from lodestone {lodestone}", userid, services.DiscordLodestoneMapping[userid]);
-            //         await _botServices.LogToChannel($"<@{userid}> REGISTER VERIFY: Success.").ConfigureAwait(false);
-            //         services.DiscordLodestoneMapping.TryRemove(userid, out _);
-            //     }
-            //     else
-            //     {
-            //         services.DiscordVerifiedUsers[userid] = false;
-            //         _logger.LogInformation("Could not verify {userid} from lodestone {lodestone}, did not find authString: {authString}, status code was: {code}",
-            //             userid, services.DiscordLodestoneMapping[userid], authString, response.StatusCode);
-            //         await _botServices.LogToChannel($"<@{userid}> REGISTER VERIFY: Failed: No Authstring ({authString}). (<{url}>)").ConfigureAwait(false);
-            //     }
-            // }
-            // else
-            // {
-            //     _logger.LogWarning("Could not verify {userid}, HttpStatusCode: {code}", userid, response.StatusCode);
-            //     await _botServices.LogToChannel($"<@{userid}> REGISTER VERIFY: Failed: HttpStatusCode {response.StatusCode}. (<{url}>)").ConfigureAwait(false);
-            // }
+            if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (content.Contains(authString))
+                {
+                    services.DiscordVerifiedUsers[userid] = true;
+                    _logger.LogInformation("Verified {userid} from lodestone {lodestone}", userid, services.DiscordLodestoneMapping[userid]);
+                    await _botServices.LogToChannel($"<@{userid}> REGISTER VERIFY: Success.").ConfigureAwait(false);
+                    services.DiscordLodestoneMapping.TryRemove(userid, out _);
+                }
+                else
+                {
+                    services.DiscordVerifiedUsers[userid] = false;
+                    _logger.LogInformation("Could not verify {userid} from lodestone {lodestone}, did not find authString: {authString}, status code was: {code}",
+                        userid, services.DiscordLodestoneMapping[userid], authString, response.StatusCode);
+                    await _botServices.LogToChannel($"<@{userid}> REGISTER VERIFY: Failed: No Authstring ({authString}). (<{url}>)").ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Could not verify {userid}, HttpStatusCode: {code}", userid, response.StatusCode);
+                await _botServices.LogToChannel($"<@{userid}> REGISTER VERIFY: Failed: HttpStatusCode {response.StatusCode}. (<{url}>)").ConfigureAwait(false);
+            }
         }
     }
 

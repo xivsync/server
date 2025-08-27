@@ -1,4 +1,4 @@
-using Discord;
+﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using MareSynchronosShared.Data;
@@ -56,7 +56,7 @@ public partial class MareWizardModule : InteractionModuleBase
             2 => "second",
             3 => "third",
             4 => "fourth",
-            _ => "error",
+            _ => "unknown",
         };
 
         Emoji nthButtonEmoji = correctButton switch
@@ -68,12 +68,10 @@ public partial class MareWizardModule : InteractionModuleBase
             _ => "unknown",
         };
 
-        eb.WithTitle("Mare Bot Services Verification");
-        eb.WithDescription("When using the bot for the first time after startup, you must pass a quick verification."
-            + Environment.NewLine + Environment.NewLine
-            + "This bot __requires__ embeds to function properly. To continue, make sure your Embed feature is enabled."
-            + Environment.NewLine
-            + $"## Please click the __{nthButtonText}__ button below ({nthButtonEmoji}).");
+        eb.WithTitle("Mare Bot Services Captcha");
+        eb.WithDescription("You are seeing this embed because you interact with this bot for the first time since the bot has been restarted." + Environment.NewLine + Environment.NewLine
+            + "This bot __requires__ embeds for its function. To proceed, please verify you have embeds enabled." + Environment.NewLine
+            + $"## To verify you have embeds enabled __press on the **{nthButtonText}** button ({nthButtonEmoji}).__");
         eb.WithColor(Color.LightOrange);
 
         int incorrectButtonHighlight = 1;
@@ -84,9 +82,9 @@ public partial class MareWizardModule : InteractionModuleBase
         while (incorrectButtonHighlight == correctButton);
 
         ComponentBuilder cb = new();
-        cb.WithButton("Use", correctButton == 1 ? "wizard-home:false" : "wizard-captcha-fail:1", emote: new Emoji("⬅️"), style: incorrectButtonHighlight == 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-        cb.WithButton("This bot", correctButton == 2 ? "wizard-home:false" : "wizard-captcha-fail:2", emote: new Emoji("🤖"), style: incorrectButtonHighlight == 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-        cb.WithButton("requires", correctButton == 3 ? "wizard-home:false" : "wizard-captcha-fail:3", emote: new Emoji("‼️"), style: incorrectButtonHighlight == 3 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("This", correctButton == 1 ? "wizard-home:false" : "wizard-captcha-fail:1", emote: new Emoji("⬅️"), style: incorrectButtonHighlight == 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("Bot", correctButton == 2 ? "wizard-home:false" : "wizard-captcha-fail:2", emote: new Emoji("🤖"), style: incorrectButtonHighlight == 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+        cb.WithButton("Requires", correctButton == 3 ? "wizard-home:false" : "wizard-captcha-fail:3", emote: new Emoji("‼️"), style: incorrectButtonHighlight == 3 ? ButtonStyle.Primary : ButtonStyle.Secondary);
         cb.WithButton("Embeds", correctButton == 4 ? "wizard-home:false" : "wizard-captcha-fail:4", emote: new Emoji("✉️"), style: incorrectButtonHighlight == 4 ? ButtonStyle.Primary : ButtonStyle.Secondary);
 
         await InitOrUpdateInteraction(init, eb, cb).ConfigureAwait(false);
@@ -111,11 +109,11 @@ public partial class MareWizardModule : InteractionModuleBase
     public async Task WizardCaptchaFail(int button)
     {
         ComponentBuilder cb = new();
-        cb.WithButton("Retry", "wizard-captcha:false", emote: new Emoji("↩️"));
+        cb.WithButton("Restart (with Embeds enabled)", "wizard-captcha:false", emote: new Emoji("↩️"));
         await ((Context.Interaction) as IComponentInteraction).UpdateAsync(m =>
         {
             m.Embed = null;
-            m.Content = "You clicked the wrong button. You may have embeds disabled. Enable it (User Settings → Text & Images → \"Show embeds and preview website links pasted into chat\") and try again.";
+            m.Content = "You pressed the wrong button. You likely have embeds disabled. Enable embeds in your Discord client (Settings -> Chat -> \"Show embeds and preview website links pasted into chat\") and try again.";
             m.Components = cb.Build();
         }).ConfigureAwait(false);
 
@@ -136,17 +134,16 @@ public partial class MareWizardModule : InteractionModuleBase
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         bool hasAccount = await mareDb.LodeStoneAuth.AnyAsync(u => u.DiscordId == Context.User.Id && u.StartedAt == null).ConfigureAwait(false);
 
-        //if (init)
+        if (init)
         {
             bool isBanned = await mareDb.BannedRegistrations.AnyAsync(u => u.DiscordIdOrLodestoneAuth == Context.User.Id.ToString()).ConfigureAwait(false);
 
             if (isBanned)
             {
                 EmbedBuilder ebBanned = new();
-                ebBanned.WithTitle("You are banned on this server");
-                ebBanned.WithDescription("This Discord account is banned.");
+                ebBanned.WithTitle("You are not welcome here");
+                ebBanned.WithDescription("Your Discord account is banned");
                 await RespondAsync(embed: ebBanned.Build(), ephemeral: true).ConfigureAwait(false);
-                _logger.LogInformation("Banned user interacted {method}:{userId}", nameof(StartWizard), Context.Interaction.User.Id);
                 return;
             }
         }
@@ -158,15 +155,16 @@ public partial class MareWizardModule : InteractionModuleBase
 #endif
 
         EmbedBuilder eb = new();
-        eb.WithTitle("Welcome to the Mare Synchronos service bot for this server");
-        eb.WithDescription("You can do the following:" + Environment.NewLine + Environment.NewLine
-            + (!hasAccount ? string.Empty : ("- Check your account status: click \"ℹ️ User Info\"" + Environment.NewLine))
-            + (hasAccount ? string.Empty : ("- Register a new Mare account: click \"🌒 Register\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- If you lost your sync key: click \"🏥 Recover\"" + Environment.NewLine))
-            + (hasAccount ? string.Empty : ("- If you changed your Discord account: click \"🔗 Relink\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- Create an alternate Mare UID: click \"2️⃣ Secondary UID\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- Set a vanity Mare UID: click \"💅 Vanity UID\"" + Environment.NewLine))
-            + (!hasAccount ? string.Empty : ("- Delete your primary or secondary UID: click \"⚠️ Delete\""))
+        eb.WithTitle("Welcome to the Mare Synchronos Service Bot for this server");
+        eb.WithDescription("Here is what you can do:" + Environment.NewLine + Environment.NewLine
+            + (!hasAccount ? string.Empty : ("- Check your account status press \"ℹ️ User Info\"" + Environment.NewLine))
+            + (hasAccount ? string.Empty : ("- Register a new Mare Account press \"🌒 Register\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- You lost your secret key press \"🏥 Recover\"" + Environment.NewLine))
+            + (hasAccount ? string.Empty : ("- If you have changed your Discord account press \"🔗 Relink\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- Create a secondary UIDs press \"2️⃣ Secondary UID\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : ("- Set a Vanity UID press \"💅 Vanity IDs\"" + Environment.NewLine))
+            + (!hasAccount ? string.Empty : (!isInAprilFoolsMode ? string.Empty : ("- Check your WorryCoin™ and MareToken© balance and add payment options" + Environment.NewLine)))
+            + (!hasAccount ? string.Empty : ("- Delete your primary or secondary accounts with \"⚠️ Delete\""))
             );
         eb.WithColor(Color.Blue);
         ComponentBuilder cb = new();
@@ -178,11 +176,14 @@ public partial class MareWizardModule : InteractionModuleBase
         else
         {
             cb.WithButton("User Info", "wizard-userinfo", ButtonStyle.Secondary, new Emoji("ℹ️"));
-            //cb.WithButton("Recover", "wizard-recover", ButtonStyle.Secondary, new Emoji("🏥"));
+            cb.WithButton("Recover", "wizard-recover", ButtonStyle.Secondary, new Emoji("🏥"));
             cb.WithButton("Secondary UID", "wizard-secondary", ButtonStyle.Secondary, new Emoji("2️⃣"));
-            cb.WithButton("Vanity UID", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💅"));
+            cb.WithButton("Vanity IDs", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💅"));
+            if (isInAprilFoolsMode)
+            {
+                cb.WithButton("WorryCoin™ and MareToken© management", "wizard-fools", ButtonStyle.Primary, new Emoji("💲"));
+            }
             cb.WithButton("Delete", "wizard-delete", ButtonStyle.Danger, new Emoji("⚠️"));
-            cb.WithButton("Support", "wizard-support", ButtonStyle.Secondary, new Emoji("💎"));
         }
 
         await InitOrUpdateInteraction(init, eb, cb).ConfigureAwait(false);
@@ -192,17 +193,17 @@ public partial class MareWizardModule : InteractionModuleBase
     {
         public string Title => "Set Vanity UID";
 
-        [InputLabel("Enter the vanity UID you want")]
-        [ModalTextInput("vanity_uid", TextInputStyle.Short, "2–15 characters: letters, digits, hyphen (-), underscore (_)", 2, 15)]
+        [InputLabel("Set your Vanity UID")]
+        [ModalTextInput("vanity_uid", TextInputStyle.Short, "5-15 characters, underscore, dash", 5, 15)]
         public string DesiredVanityUID { get; set; }
     }
 
     public class VanityGidModal : IModal
     {
-        public string Title => "Set Vanity Group ID";
+        public string Title => "Set Vanity Syncshell ID";
 
-        [InputLabel("Enter the vanity Group ID you want")]
-        [ModalTextInput("vanity_gid", TextInputStyle.Short, "2–15 characters: letters, digits, hyphen (-), underscore (_)", 2, 15)]
+        [InputLabel("Set your Vanity Syncshell ID")]
+        [ModalTextInput("vanity_gid", TextInputStyle.Short, "5-20 characters, underscore, dash", 5, 20)]
         public string DesiredVanityGID { get; set; }
     }
 
@@ -210,8 +211,8 @@ public partial class MareWizardModule : InteractionModuleBase
     {
         public string Title => "Confirm Account Deletion";
 
-        [InputLabel("Type \"DELETE\" in ALL CAPS")]
-        [ModalTextInput("confirmation", TextInputStyle.Short, "Type DELETE")]
+        [InputLabel("Enter \"DELETE\" in all Caps")]
+        [ModalTextInput("confirmation", TextInputStyle.Short, "Enter DELETE")]
         public string Delete { get; set; }
     }
 
@@ -231,9 +232,8 @@ public partial class MareWizardModule : InteractionModuleBase
 
         EmbedBuilder eb = new();
         eb.WithTitle("Session expired");
-        eb.WithDescription("This session has expired. Please click \"Start\" again to begin a new interaction."
-            + Environment.NewLine + Environment.NewLine
-            + "Please interact with the most recent thread.");
+        eb.WithDescription("This session has expired since you have either again pressed \"Start\" on the initial message or the bot has been restarted." + Environment.NewLine + Environment.NewLine
+            + "Please use the newly started interaction or start a new one.");
         eb.WithColor(Color.Red);
         ComponentBuilder cb = new();
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
@@ -243,7 +243,7 @@ public partial class MareWizardModule : InteractionModuleBase
 
     private void AddHome(ComponentBuilder cb)
     {
-        cb.WithButton("Back to Main Menu", "wizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
+        cb.WithButton("Return to Home", "wizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
     }
 
     private async Task ModifyModalInteraction(EmbedBuilder eb, ComponentBuilder cb)
@@ -305,7 +305,7 @@ public partial class MareWizardModule : InteractionModuleBase
                 gids.AddOption(item.Alias ?? item.GID, item.GID, (item.Alias == null ? string.Empty : item.GID) + $" ({item.Owner.Alias ?? item.Owner.UID})", new Emoji("2️⃣"));
             }
             gids.WithCustomId(customId);
-            gids.WithPlaceholder("Select a group");
+            gids.WithPlaceholder("Select a Syncshell");
             cb.WithSelectMenu(gids);
         }
     }
@@ -329,14 +329,13 @@ public partial class MareWizardModule : InteractionModuleBase
 
     private int? ParseCharacterIdFromLodestoneUrl(string lodestoneUrl)
     {
-        // var regex = new Regex(@"https:\/\/(na|eu|de|fr|jp)\.finalfantasyxiv\.com\/lodestone\/character\/\d+");
-        var regex = new Regex(@"^\d{8,}$");
+        var regex = new Regex(@"https:\/\/(na|eu|de|fr|jp)\.finalfantasyxiv\.com\/lodestone\/character\/\d+");
         var matches = regex.Match(lodestoneUrl);
         var isLodestoneUrl = matches.Success;
-        if (!isLodestoneUrl) return null;
+        if (!isLodestoneUrl || matches.Groups.Count < 1) return null;
 
         lodestoneUrl = matches.Groups[0].ToString();
-        var stringId = lodestoneUrl;
+        var stringId = lodestoneUrl.Split('/', StringSplitOptions.RemoveEmptyEntries).Last();
         if (!int.TryParse(stringId, out int lodestoneId))
         {
             return null;
@@ -344,10 +343,4 @@ public partial class MareWizardModule : InteractionModuleBase
 
         return lodestoneId;
     }
-
-    private string GetSZJCookie()
-    {
-        return _mareServicesConfiguration.GetValueOrDefault(nameof(ServicesConfiguration.SZJCookie), string.Empty);
-    }
-
 }

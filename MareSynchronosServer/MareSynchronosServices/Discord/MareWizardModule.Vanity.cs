@@ -20,7 +20,7 @@ public partial class MareWizardModule
         bool userIsInVanityRole = _botServices.VanityRoles.Keys.Any(u => user.RoleIds.Contains(u.Id)) || !_botServices.VanityRoles.Any();
         if (!userIsInVanityRole)
         {
-            sb.AppendLine("你必须拥有以下身份组之一才能设置个性ID:");
+            sb.AppendLine("To be able to set Vanity IDs you must have one of the following roles:");
             foreach (var role in _botServices.VanityRoles)
             {
                 sb.Append("- ").Append(role.Key.Mention).Append(" (").Append(role.Value).AppendLine(")");
@@ -28,13 +28,13 @@ public partial class MareWizardModule
         }
         else
         {
-            sb.AppendLine("你的当前身份组允许设置个性ID.");
+            sb.AppendLine("Your current roles on this server allow you to set Vanity IDs.");
         }
 
         EmbedBuilder eb = new();
-        eb.WithTitle("Vanity UID");
-        eb.WithDescription("你可以在这里设置个性ID" + Environment.NewLine
-            + "个性ID可以改变别人在同步贝里显示的你的ID（或你的同步贝的ID）。" + Environment.NewLine + Environment.NewLine
+        eb.WithTitle("Vanity IDs");
+        eb.WithDescription("You are able to set your Vanity IDs here." + Environment.NewLine
+            + "Vanity IDs are a way to customize your displayed UID or Syncshell ID to others." + Environment.NewLine + Environment.NewLine
             + sb.ToString());
         eb.WithColor(Color.Blue);
         ComponentBuilder cb = new();
@@ -60,12 +60,12 @@ public partial class MareWizardModule
         var user = db.Users.Single(u => u.UID == uid);
         EmbedBuilder eb = new();
         eb.WithColor(Color.Purple);
-        eb.WithTitle($"为 {uid} 设置Vanity UID");
-        eb.WithDescription($"你即将更改 {uid} 的Vanity UID" + Environment.NewLine + Environment.NewLine
-            + "目前设置的Vanity UID是: **" + (user.Alias == null ? "没有设置Vanity UID" : user.Alias) + "**");
+        eb.WithTitle($"Set Vanity UID for {uid}");
+        eb.WithDescription($"You are about to change the Vanity UID for {uid}" + Environment.NewLine + Environment.NewLine
+            + "The current Vanity UID is set to: **" + (user.Alias == null ? "No Vanity UID set" : user.Alias) + "**");
         ComponentBuilder cb = new();
         cb.WithButton("Cancel", "wizard-vanity", ButtonStyle.Secondary, emote: new Emoji("❌"));
-        cb.WithButton("设置Vanity UID", "wizard-vanity-uid-set:" + uid, ButtonStyle.Primary, new Emoji("💅"));
+        cb.WithButton("Set Vanity ID", "wizard-vanity-uid-set:" + uid, ButtonStyle.Primary, new Emoji("💅"));
 
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
@@ -93,22 +93,22 @@ public partial class MareWizardModule
         using var db = await GetDbContext().ConfigureAwait(false);
         bool canAddVanityId = !db.Users.Any(u => u.UID == modal.DesiredVanityUID || u.Alias == modal.DesiredVanityUID);
 
-        Regex rgx = new(@"^[_\-a-zA-Z0-9\u4e00-\u9fa5]{2,15}$", RegexOptions.ECMAScript);
+        Regex rgx = new(@"^[_\-a-zA-Z0-9]{5,15}$", RegexOptions.ECMAScript);
         if (!rgx.Match(desiredVanityUid).Success)
         {
             eb.WithColor(Color.Red);
-            eb.WithTitle("不符合要求的Vanity UID");
-            eb.WithDescription("Vanity UID必须是2到15位长度，并且只包含中文, 字母 A-Z, 数字 0-9, 短横线 (-) 以及下划线 (_)。");
+            eb.WithTitle("Invalid Vanity UID");
+            eb.WithDescription("A Vanity UID must be between 5 and 15 characters long and only contain the letters A-Z, numbers 0-9, dashes (-) and underscores (_).");
             cb.WithButton("Cancel", "wizard-vanity", ButtonStyle.Secondary, emote: new Emoji("❌"));
-            cb.WithButton("选择另一个UID", "wizard-vanity-uid-set:" + uid, ButtonStyle.Primary, new Emoji("💅"));
+            cb.WithButton("Pick Different UID", "wizard-vanity-uid-set:" + uid, ButtonStyle.Primary, new Emoji("💅"));
         }
         else if (!canAddVanityId)
         {
             eb.WithColor(Color.Red);
-            eb.WithTitle("Vanity UID已被占用");
-            eb.WithDescription($"Vanity UID {desiredVanityUid} 已经被占用了。 请选择一个其他的Vanity UID。");
+            eb.WithTitle("Vanity UID already taken");
+            eb.WithDescription($"The Vanity UID {desiredVanityUid} has already been claimed. Please pick a different one.");
             cb.WithButton("Cancel", "wizard-vanity", ButtonStyle.Secondary, emote: new Emoji("❌"));
-            cb.WithButton("选择另一个UID", "wizard-vanity-uid-set:" + uid, ButtonStyle.Primary, new Emoji("💅"));
+            cb.WithButton("Pick Different UID", "wizard-vanity-uid-set:" + uid, ButtonStyle.Primary, new Emoji("💅"));
         }
         else
         {
@@ -117,9 +117,10 @@ public partial class MareWizardModule
             db.Update(user);
             await db.SaveChangesAsync().ConfigureAwait(false);
             eb.WithColor(Color.Green);
-            eb.WithTitle("成功设置Vanity UID");
-            eb.WithDescription($"您的UID \"{uid}\" 的Vanity UID成功设置为 \"{desiredVanityUid}\"。" + Environment.NewLine + Environment.NewLine
-                + "重新连接Mare服务器来使变更生效。");
+            eb.WithTitle("Vanity UID successfully set");
+            eb.WithDescription($"Your Vanity UID for \"{uid}\" was successfully changed to \"{desiredVanityUid}\"." + Environment.NewLine + Environment.NewLine
+                + "For changes to take effect you need to reconnect to the Mare service.");
+            await _botServices.LogToChannel($"{Context.User.Mention} VANITY UID SET: UID: {user.UID}, Vanity: {desiredVanityUid}").ConfigureAwait(false);
             AddHome(cb);
         }
 
@@ -135,12 +136,12 @@ public partial class MareWizardModule
         var group = db.Groups.Single(u => u.GID == gid);
         EmbedBuilder eb = new();
         eb.WithColor(Color.Purple);
-        eb.WithTitle($"为同步贝 {gid} 设置个性 GID");
-        eb.WithDescription($"你即将更改 {gid} 的个性 GID" + Environment.NewLine + Environment.NewLine
-            + "目前设置的个性 GID是: **" + (group.Alias == null ? "没有设置个性 GID" : group.Alias) + "**");
+        eb.WithTitle($"Set Vanity GID for {gid}");
+        eb.WithDescription($"You are about to change the Vanity Syncshell ID for {gid}" + Environment.NewLine + Environment.NewLine
+            + "The current Vanity Syncshell ID is set to: **" + (group.Alias == null ? "No Vanity Syncshell ID set" : group.Alias) + "**");
         ComponentBuilder cb = new();
         cb.WithButton("Cancel", "wizard-vanity", ButtonStyle.Secondary, emote: new Emoji("❌"));
-        cb.WithButton("设置个性 GID", "wizard-vanity-gid-set:" + gid, ButtonStyle.Primary, new Emoji("💅"));
+        cb.WithButton("Set Vanity ID", "wizard-vanity-gid-set:" + gid, ButtonStyle.Primary, new Emoji("💅"));
 
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
@@ -168,22 +169,22 @@ public partial class MareWizardModule
         using var db = await GetDbContext().ConfigureAwait(false);
         bool canAddVanityId = !db.Groups.Any(u => u.GID == modal.DesiredVanityGID || u.Alias == modal.DesiredVanityGID);
 
-        Regex rgx = new(@"^[_\-a-zA-Z0-9\u4e00-\u9fa5]{2,15}$", RegexOptions.ECMAScript);
+        Regex rgx = new(@"^[_\-a-zA-Z0-9]{5,20}$", RegexOptions.ECMAScript);
         if (!rgx.Match(desiredVanityGid).Success)
         {
             eb.WithColor(Color.Red);
-            eb.WithTitle("不符合要求的个性 GID");
-            eb.WithDescription("个性 GID 必须是2到15位长度，并且只包含中文, 字母 A-Z, 数字 0-9, 短横线 (-) 以及下划线 (_)。");
+            eb.WithTitle("Invalid Vanity Syncshell ID");
+            eb.WithDescription("A Vanity Syncshell ID must be between 5 and 20 characters long and only contain the letters A-Z, numbers 0-9, dashes (-) and underscores (_).");
             cb.WithButton("Cancel", "wizard-vanity", ButtonStyle.Secondary, emote: new Emoji("❌"));
-            cb.WithButton("选择另一个GID", "wizard-vanity-gid-set:" + gid, ButtonStyle.Primary, new Emoji("💅"));
+            cb.WithButton("Pick Different ID", "wizard-vanity-gid-set:" + gid, ButtonStyle.Primary, new Emoji("💅"));
         }
         else if (!canAddVanityId)
         {
             eb.WithColor(Color.Red);
-            eb.WithTitle("个性 GID已被占用");
-            eb.WithDescription($"个性 GID \"{desiredVanityGid}\" 已经被占用了。 请选择一个其他的个性 GID.");
+            eb.WithTitle("Vanity Syncshell ID already taken");
+            eb.WithDescription($"The Vanity Synshell ID \"{desiredVanityGid}\" has already been claimed. Please pick a different one.");
             cb.WithButton("Cancel", "wizard-vanity", ButtonStyle.Secondary, emote: new Emoji("❌"));
-            cb.WithButton("选择另一个GID", "wizard-vanity-gid-set:" + gid, ButtonStyle.Primary, new Emoji("💅"));
+            cb.WithButton("Pick Different ID", "wizard-vanity-gid-set:" + gid, ButtonStyle.Primary, new Emoji("💅"));
         }
         else
         {
@@ -192,9 +193,9 @@ public partial class MareWizardModule
             db.Update(group);
             await db.SaveChangesAsync().ConfigureAwait(false);
             eb.WithColor(Color.Green);
-            eb.WithTitle("成功设置个性 GID");
-            eb.WithDescription($"您的同步贝 {gid} 的个性 GID 成功设置为 \"{desiredVanityGid}\"." + Environment.NewLine + Environment.NewLine
-                + "重新连接Mare服务器来使变更生效。");
+            eb.WithTitle("Vanity Syncshell ID successfully set");
+            eb.WithDescription($"Your Vanity Syncshell ID for {gid} was successfully changed to \"{desiredVanityGid}\"." + Environment.NewLine + Environment.NewLine
+                + "For changes to take effect you need to reconnect to the Mare service.");
             AddHome(cb);
             await _botServices.LogToChannel($"{Context.User.Mention} VANITY GID SET: GID: {group.GID}, Vanity: {desiredVanityGid}").ConfigureAwait(false);
         }

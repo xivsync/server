@@ -19,14 +19,14 @@ public partial class MareWizardModule
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
         eb.WithColor(Color.Blue);
-        eb.WithTitle("恢复");
-        eb.WithDescription("如果你丢失了同步密钥，可以在此恢复。" + Environment.NewLine + Environment.NewLine
-            + "## ⚠️ **一旦你获取了新秘钥，旧密钥将会失效. 如果你在多台电脑使用Mare需要在每一处都更新密钥.** ⚠️" + Environment.NewLine + Environment.NewLine
-            + "下面的选择框来选取需要恢复的UID。" + Environment.NewLine + Environment.NewLine
-            + "- 1️⃣ 是你的主要账号/UID" + Environment.NewLine
-            + "- 2️⃣ 是你所有的Secondary UID" + Environment.NewLine
-            + "如果你在使用Vanity UID的话，原始的UID会在账号选项的第二行显示。" + Environment.NewLine
-            + "# 注意: 建议使用OAuth2登录而非密钥, 将在不久的未来Cancel密钥登录.");
+        eb.WithTitle("Recover");
+        eb.WithDescription("In case you have lost your secret key you can recover it here." + Environment.NewLine + Environment.NewLine
+            + "## ⚠️ **Once you recover your key, the previously used key will be invalidated. If you use Mare on multiple devices you will have to update the key everywhere you use it.** ⚠️" + Environment.NewLine + Environment.NewLine
+            + "Use the selection below to select the user account you want to recover." + Environment.NewLine + Environment.NewLine
+            + "- 1️⃣ is your primary account/UID" + Environment.NewLine
+            + "- 2️⃣ are all your secondary accounts/UIDs" + Environment.NewLine
+            + "If you are using Vanity UIDs the original UID is displayed in the second line of the account selection." + Environment.NewLine
+            + "# Note: instead of recovery and handling secret keys the switch to OAuth2 authentication is strongly suggested.");
         ComponentBuilder cb = new();
         await AddUserSelection(mareDb, cb, "wizard-recover-select").ConfigureAwait(false);
         AddHome(cb);
@@ -70,8 +70,8 @@ public partial class MareWizardModule
 
         await db.Auth.AddAsync(auth).ConfigureAwait(false);
 
-        embed.WithTitle($"您的账号 {uid} 恢复成功。");
-        embed.WithDescription("这里是你的同步密钥。不要与任何人分享它 **如果它丢失了，是无法恢复的。**"
+        embed.WithTitle($"Recovery for {uid} complete");
+        embed.WithDescription("This is your new private secret key. Do not share this private secret key with anyone. **If you lose it, it is irrevocably lost.**"
                               + Environment.NewLine + Environment.NewLine
                               + "**__NOTE: Secret keys are considered legacy authentication. If you are using the suggested OAuth2 authentication, you do not need to use the Secret Key or recover ever again.__**"
                               + Environment.NewLine + Environment.NewLine
@@ -79,7 +79,7 @@ public partial class MareWizardModule
                               + Environment.NewLine
                               + "__NOTE: The Secret Key only contains the letters ABCDEF and numbers 0 - 9.__"
                               + Environment.NewLine + Environment.NewLine
-                              + "输入此同步密钥到Mare服务设置中并重新连接服务。");
+                              + "Enter this key in the Mare Synchronos Service Settings and reconnect to the service.");
 
         await db.Auth.AddAsync(auth).ConfigureAwait(false);
         await db.SaveChangesAsync().ConfigureAwait(false);

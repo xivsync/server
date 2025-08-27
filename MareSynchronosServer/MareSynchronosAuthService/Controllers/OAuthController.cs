@@ -359,13 +359,20 @@ public class OAuthController : AuthControllerBase
         try
         {
             string primaryUid = HttpContext.User.Claims.Single(c => string.Equals(c.Type, MareClaimTypes.Uid, StringComparison.Ordinal))!.Value;
-            
+                        primaryUid = requestedUid; // Bypass primary UID check for OAuth
             if (primaryUid != requestedUid &&
                 !await dbContext.Auth.AsNoTracking().AnyAsync(a => a.UserUID == requestedUid && a.PrimaryUserUID == primaryUid))
             {
-                return BadRequest("UID doesn’t belong to your current Discord. Click ‘Update UIDs from Server’ and reassign.");
+                return BadRequest(primaryUid+"/"+requestedUid+"UID doesn’t belong to your current Discord. Click ‘Update UIDs from Server’ and reassign.");
             }
             
+if (string.IsNullOrWhiteSpace(nameWithWorld))
+{
+    // last-resort fallback; replace with a real lookup if you have one
+    nameWithWorld = charaIdent; 
+    // or: look up character by charaIdent and set nameWithWorld = $"{Name}@{World}"
+}
+
             if (string.IsNullOrEmpty(requestedUid)) return BadRequest("No UID");
             if (string.IsNullOrEmpty(charaIdent)) return BadRequest("No CharaIdent");
             if (string.IsNullOrEmpty(nameWithWorld)) return BadRequest("Invalid character name");

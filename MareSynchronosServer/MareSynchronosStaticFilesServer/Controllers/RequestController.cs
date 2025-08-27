@@ -1,5 +1,10 @@
-﻿using MareSynchronos.API.Routes;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using MareSynchronos.API.Routes;
 using MareSynchronosStaticFilesServer.Services;
+using MareSynchronosStaticFilesServer.Utils;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MareSynchronosStaticFilesServer.Controllers;
@@ -10,7 +15,10 @@ public class RequestController : ControllerBase
     private readonly CachedFileProvider _cachedFileProvider;
     private readonly RequestQueueService _requestQueue;
 
-    public RequestController(ILogger<RequestController> logger, CachedFileProvider cachedFileProvider, RequestQueueService requestQueue) : base(logger)
+    public RequestController(
+        ILogger<RequestController> logger,
+        CachedFileProvider cachedFileProvider,
+        RequestQueueService requestQueue) : base(logger)
     {
         _cachedFileProvider = cachedFileProvider;
         _requestQueue = requestQueue;
@@ -25,39 +33,60 @@ public class RequestController : ControllerBase
             _requestQueue.RemoveFromQueue(requestId, MareUser, IsPriority);
             return Ok();
         }
-        catch (OperationCanceledException) { return BadRequest(); }
+        catch (OperationCanceledException)
+        {
+            return BadRequest();
+        }
     }
 
+    // NOTE: We eagerly download files here so CacheController can serve them immediately.
     [HttpPost]
     [Route(MareFiles.Request_Enqueue)]
     public async Task<IActionResult> PreRequestFilesAsync([FromBody] IEnumerable<string> files)
     {
         try
         {
-            foreach (var file in files)
+            var list = (files ?? Enumerable.Empty<string>()).ToList();
+
+            foreach (var file in list)
             {
-                _logger.LogDebug("Prerequested file: " + file);
+                _logger.LogDebug("Prerequested file: {File}", file);
                 await _cachedFileProvider.DownloadFileWhenRequired(file).ConfigureAwait(false);
             }
 
-            Guid g = Guid.NewGuid();
-            await _requestQueue.EnqueueUser(new(g, MareUser, files.ToList()), IsPriority, HttpContext.RequestAborted);
+            var requestId = Guid.NewGuid();
+            var req = new UserRequest(requestId, MareUser, list);
 
-            return Ok(g);
+            await _requestQueue.EnqueueUser(req, IsPriority, HttpContext.RequestAborted)
+                               .ConfigureAwait(false);
+
+            return Ok(requestId);
         }
-        catch (OperationCanceledException) { return BadRequest(); }
+        catch (OperationCanceledException)
+        {
+            return BadRequest();
+        }
     }
 
     [HttpGet]
     [Route(MareFiles.Request_Check)]
-    public async Task<IActionResult> CheckQueueAsync(Guid requestId, [FromBody] IEnumerable<string> files)
+    public async Task<IActionResult> CheckQueueAsync(Guid requestId, [FromBody] IEnumerable<string>? files)
     {
         try
         {
             if (!_requestQueue.StillEnqueued(requestId, MareUser, IsPriority))
-                await _requestQueue.EnqueueUser(new(requestId, MareUser, files.ToList()), IsPriority, HttpContext.RequestAborted);
+            {
+                var list = (files ?? Enumerable.Empty<string>()).ToList();
+                var req = new UserRequest(requestId, MareUser, list);
+                await _requestQueue.EnqueueUser(req, IsPriority, HttpContext.RequestAborted)
+                                   .ConfigureAwait(false);
+            }
+
             return Ok();
         }
-        catch (OperationCanceledException) { return BadRequest(); }
+        catch (OperationCanceledException)
+        {
+            return BadRequest();
+        }
     }
 }

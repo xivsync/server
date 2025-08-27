@@ -2,9 +2,12 @@
 using Discord;
 using Discord.Net;
 using Discord.Rest;
+using Discord.WebSocket;
 using MareSynchronosShared.Metrics;
+using MareSynchronosShared.Models;
 using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils.Configuration;
+using StackExchange.Redis;
 
 namespace MareSynchronosServices.Discord;
 
@@ -179,4 +182,5 @@ public class DiscordBotServices
             await restUser.AddRoleAsync(roleId.Value).ConfigureAwait(false);
         Logger.LogInformation("Updated Supporter for {key}", restUser.Id);
     }
+
 }

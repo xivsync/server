@@ -1,4 +1,6 @@
-using System.Text;
+﻿using System.Text;
+using System.Net.Http;
+using System.Net.Http.Json;
 using Discord;
 using Discord.Interactions;
 using Discord.Rest;
@@ -10,6 +12,7 @@ using MareSynchronosShared.Services;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json.Linq;
 using StackExchange.Redis;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 
@@ -23,16 +26,22 @@ internal class DiscordBot : IHostedService
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<DiscordBot> _logger;
     private readonly IDbContextFactory<MareDbContext> _dbContextFactory;
+    private readonly IServiceProvider _services;
     private readonly ServerTokenGenerator _serverTokenGenerator;
 
-    private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
     private CancellationTokenSource? _processReportQueueCts;
     private CancellationTokenSource? _clientConnectedCts;
 
-    public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<ServicesConfiguration> configuration,
+    public DiscordBot(
+        DiscordBotServices botServices,
+        IServiceProvider services,
+        IConfigurationService<ServicesConfiguration> configuration,
         IDbContextFactory<MareDbContext> dbContextFactory,
-        ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer, ServerTokenGenerator serverTokenGenerator)
+        ILogger<DiscordBot> logger,
+        IConnectionMultiplexer connectionMultiplexer,
+        ServerTokenGenerator serverTokenGenerator
+    )
     {
         _botServices = botServices;
         _services = services;
@@ -40,18 +49,21 @@ internal class DiscordBot : IHostedService
         _dbContextFactory = dbContextFactory;
         _logger = logger;
         _connectionMultiplexer = connectionMultiplexer;
+        _serverTokenGenerator = serverTokenGenerator;
+
         _discordClient = new(new DiscordSocketConfig()
         {
             DefaultRetryMode = RetryMode.AlwaysRetry,
             GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.GuildMembers
         });
-        _serverTokenGenerator = serverTokenGenerator;
 
         _discordClient.Log += Log;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation("StartAsync invoked");
+
         var token = _configurationService.GetValueOrDefault(nameof(ServicesConfiguration.DiscordBotToken), string.Empty);
         if (!string.IsNullOrEmpty(token))
         {
@@ -64,11 +76,17 @@ internal class DiscordBot : IHostedService
             await _interactionModule.AddModuleAsync(typeof(MareModule), _services).ConfigureAwait(false);
             await _interactionModule.AddModuleAsync(typeof(MareWizardModule), _services).ConfigureAwait(false);
 
-
-            await _discordClient.LoginAsync(TokenType.Bot, token).ConfigureAwait(false);
-            await _discordClient.StartAsync().ConfigureAwait(false);
-
+            // Attach Ready *before* connecting, just in case
             _discordClient.Ready += DiscordClient_Ready;
+
+            _logger.LogInformation("Logging in...");
+            await _discordClient.LoginAsync(TokenType.Bot, token).ConfigureAwait(false);
+            _logger.LogInformation("LoginAsync completed");
+
+            _logger.LogInformation("Starting gateway connection...");
+            await _discordClient.StartAsync().ConfigureAwait(false);
+            _logger.LogInformation("StartAsync on DiscordSocketClient completed. ConnectionState={state}", _discordClient.ConnectionState);
+
             _discordClient.ButtonExecuted += ButtonExecutedHandler;
             _discordClient.InteractionCreated += async (x) =>
             {
@@ -77,7 +95,22 @@ internal class DiscordBot : IHostedService
             };
             _discordClient.UserJoined += OnUserJoined;
 
+            // Watchdog: warn if Ready hasn't fired soon
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+                if (_discordClient.ConnectionState != ConnectionState.Connected)
+                {
+                    _logger.LogWarning("Discord Ready not observed within 30s. Current state: {state}. Check token, intents, and network reachability.",
+                        _discordClient.ConnectionState);
+                }
+            }, cancellationToken);
+
             await _botServices.Start().ConfigureAwait(false);
+        }
+        else
+        {
+            _logger.LogWarning("Discord bot token missing; bot not started.");
         }
     }
 
@@ -114,155 +147,39 @@ internal class DiscordBot : IHostedService
         }
     }
 
-    private async Task ButtonExecutedHandler(SocketMessageComponent arg)
-    {
-        var id = arg.Data.CustomId;
-        if (!id.StartsWith("mare-report-button", StringComparison.Ordinal)) return;
-
-        var userId = arg.User.Id;
-        using var dbContext = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
-        var user = await dbContext.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == userId).ConfigureAwait(false);
-
-        if (user == null || (!user.User.IsModerator && !user.User.IsAdmin))
-        {
-            EmbedBuilder eb = new();
-            eb.WithTitle($"Insufficient permissions");
-            eb.WithDescription($"<@{userId}>: you do not have permission to handle reports");
-            await arg.RespondAsync(embed: eb.Build(), ephemeral:true).ConfigureAwait(false);
-            return;
-        }
-
-        id = id.Remove(0, "mare-report-button-".Length);
-        var split = id.Split('-', StringSplitOptions.RemoveEmptyEntries);
-
-        var profile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
-
-        var embed = arg.Message.Embeds.First();
-
-        var builder = embed.ToEmbedBuilder();
-        var otherPairs = await dbContext.ClientPairs.Where(p => p.UserUID == split[1]).Select(p => p.OtherUserUID).ToListAsync().ConfigureAwait(false);
-        switch (split[0])
-        {
-            case "dismiss":
-                builder.AddField("Resolution", $"Report dismissed by administrator <@{userId}>");
-                builder.WithColor(Color.Green);
-                profile.FlaggedForReport = false;
-                await SendMessageToClients("A report against you has been dismissed.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
-                // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                //         MessageSeverity.Warning, "A report against you has been dismissed.")
-                //     .ConfigureAwait(false);
-                break;
-
-            case "banreporting":
-                builder.AddField("Resolution", $"Report dismissed by administrator <@{userId}>, reporting user has been banned");
-                builder.WithColor(Color.DarkGreen);
-                profile.FlaggedForReport = false;
-                var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
-                reportingUser.MarkForBan = true;
-                var regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
-                BanAuth(dbContext, regReporting);
-                await SendMessageToClients("A report against you has been dismissed.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
-                // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                //         MessageSeverity.Warning, "A report against you has been dismissed.")
-                //     .ConfigureAwait(false);
-                break;
-
-            // case "banprofile":
-            //     builder.AddField("Resolution", $"Profile has been banned by administrator <@{userId}>");
-            //     builder.WithColor(Color.Red);
-            //     profile.Base64ProfileImage = null;
-            //     profile.UserDescription = null;
-            //     profile.ProfileDisabled = true;
-            //     profile.FlaggedForReport = false;
-            //     await SendMessageToClients("Due to a report against you, your profile will be banned. To appeal, please contact administrator.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
-            //
-            //     // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-            //     //     MessageSeverity.Warning, "Due to a report against you, your profile will be banned. To appeal, please contact administrator.")
-            //     //     .ConfigureAwait(false);
-            //     break;
-
-            case "banuser":
-                builder.AddField("Resolution", $"User has been banned by administrator <@{userId}>");
-                builder.WithColor(Color.DarkRed);
-                var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
-                offendingUser.MarkForBan = true;
-                profile.Base64ProfileImage = null;
-                profile.UserDescription = null;
-                profile.ProfileDisabled = true;
-                var reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
-                BanAuth(dbContext, reg);
-                await SendMessageToClients("Due to a report against you, your account will be banned. To appeal, please contact an administrator in the MareCN Discord.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
-                // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_ReceiveServerMessage),
-                //     MessageSeverity.Warning, "Due to a report against you, your account will be banned. To appeal, please contact an administrator in the MareCN Discord.")
-                //     .ConfigureAwait(false);
-                break;
-            case "banboth":
-                builder.AddField("Resolution", $"Both users have been banned by administrator <@{userId}>");
-                builder.WithColor(Color.DarkRed);
-                offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
-                offendingUser.MarkForBan = true;
-                profile.Base64ProfileImage = null;
-                profile.UserDescription = null;
-                profile.ProfileDisabled = true;
-                reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
-                BanAuth(dbContext, reg);
-
-                profile.FlaggedForReport = false;
-                reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
-                reportingUser.MarkForBan = true;
-                regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
-                BanAuth(dbContext, regReporting);
-                break;
-        }
-
-        await dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // await _mareHubContext.Clients.Users(otherPairs).SendAsync(nameof(IMareHub.Client_UserUpdateProfile), new UserDto(new(split[1]))).ConfigureAwait(false);
-        // await _mareHubContext.Clients.User(split[1]).SendAsync(nameof(IMareHub.Client_UserUpdateProfile), new UserDto(new(split[1]))).ConfigureAwait(false);
-
-        await arg.Message.ModifyAsync(msg =>
-        {
-            msg.Content = arg.Message.Content;
-            msg.Components = null;
-            msg.Embed = new Optional<Embed>(builder.Build());
-        }).ConfigureAwait(false);
-    }
-
-    private void BanAuth(MareDbContext dbContext, LodeStoneAuth lodeStoneAuth)
-    {
-        if (!dbContext.BannedRegistrations.Any(x => x.DiscordIdOrLodestoneAuth == lodeStoneAuth.HashedLodestoneId))
-        {
-            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-            {
-                DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
-            });
-        }
-        if (!dbContext.BannedRegistrations.Any(x => x.DiscordIdOrLodestoneAuth == lodeStoneAuth.DiscordId.ToString()))
-        {
-            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
-            {
-                DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
-            });
-        }
-    }
-
     private async Task DiscordClient_Ready()
     {
-        var guild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
-        await _interactionModule.RegisterCommandsToGuildAsync(guild.Id, true).ConfigureAwait(false);
-        _clientConnectedCts?.Cancel();
-        _clientConnectedCts?.Dispose();
-        _clientConnectedCts = new();
-        _ = UpdateStatusAsync(_clientConnectedCts.Token);
+        try
+        {
+            _logger.LogInformation("DiscordClient_Ready fired");
 
-        await CreateOrUpdateModal(guild).ConfigureAwait(false);
-        _botServices.UpdateGuild(guild);
-        await _botServices.LogToChannel("Bot startup complete.").ConfigureAwait(false);
-        _ = UpdateVanityRoles(guild, _clientConnectedCts.Token);
-        _ = RemoveUsersNotInVanityRole(_clientConnectedCts.Token);
-        _ = RemoveUnregisteredUsers(_clientConnectedCts.Token);
-        _ = ProcessReportsQueue();
-        _ = CheckSupporters(_clientConnectedCts.Token);
+            var guild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
+            _logger.LogInformation("Registering interaction commands to guild {guildId}", guild.Id);
+            await _interactionModule.RegisterCommandsToGuildAsync(guild.Id, true).ConfigureAwait(false);
+
+            _clientConnectedCts?.Cancel();
+            _clientConnectedCts?.Dispose();
+            _clientConnectedCts = new();
+
+            _logger.LogInformation("Spawning background loops after Ready");
+            _ = UpdateStatusAsync(_clientConnectedCts.Token);
+
+            await CreateOrUpdateModal(guild).ConfigureAwait(false);
+            _botServices.UpdateGuild(guild);
+            await _botServices.LogToChannel("Bot startup complete.").ConfigureAwait(false);
+
+            _ = UpdateVanityRoles(guild, _clientConnectedCts.Token);
+            _ = RemoveUsersNotInVanityRole(_clientConnectedCts.Token);
+            _ = RemoveUnregisteredUsers(_clientConnectedCts.Token);
+            _ = ProcessReportsQueue();
+            _ = CheckSupporters(_clientConnectedCts.Token);
+
+            _logger.LogInformation("DiscordClient_Ready completed");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception in DiscordClient_Ready");
+        }
     }
 
     private async Task CheckSupporters(CancellationToken token)
@@ -300,7 +217,6 @@ internal class DiscordBot : IHostedService
             }
         }
     }
-
 
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
     {
@@ -365,10 +281,10 @@ internal class DiscordBot : IHostedService
     private async Task GenerateOrUpdateWizardMessage(SocketTextChannel channel, IUserMessage? prevMessage)
     {
         EmbedBuilder eb = new EmbedBuilder();
-        eb.WithTitle("XIV Sync Services Bot Interaction");
-        eb.WithDescription("Click \"Start\" to begin interacting with this bot!" + Environment.NewLine + Environment.NewLine
-            + "You can manage all your XIV Sync account needs on this server using this simple interactive bot. Just follow the instructions!");
-        eb.WithThumbnailUrl("https://i.ibb.co/wr8hhnh0/Screenshot-2025-08-22-033336.png");
+        eb.WithTitle("XIVSync Services Interaction Service");
+        eb.WithDescription("Press \"Start\" to interact with this bot!" + Environment.NewLine + Environment.NewLine
+            + "You can handle all of your Mare account needs in this server through the easy to use interactive bot prompt. Just follow the instructions!");
+        eb.WithThumbnailUrl("https://raw.githubusercontent.com/xivsync/repo/main/XIVSync/images/icon.png");
         var cb = new ComponentBuilder();
         cb.WithButton("Start", style: ButtonStyle.Primary, customId: "wizard-captcha:true", emote: Emoji.Parse("➡️"));
         if (prevMessage == null)
@@ -407,123 +323,6 @@ internal class DiscordBot : IHostedService
         }
 
         return Task.CompletedTask;
-    }
-
-    private async Task ProcessReportsQueue()
-    {
-        var guild = (await _discordClient.Rest.GetGuildsAsync()).First();
-
-        _processReportQueueCts?.Cancel();
-        _processReportQueueCts?.Dispose();
-        _processReportQueueCts = new();
-        var token = _processReportQueueCts.Token;
-        while (!token.IsCancellationRequested)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
-
-            if (_discordClient.ConnectionState != ConnectionState.Connected) continue;
-            var reportChannelId = _configurationService.GetValue<ulong?>(nameof(ServicesConfiguration.DiscordChannelForReports));
-            if (reportChannelId == null) continue;
-
-            try
-            {
-                using (var scope = _services.CreateScope())
-                {
-                    _logger.LogInformation("Checking for Profile Reports");
-                    var dbContext = scope.ServiceProvider.GetRequiredService<MareDbContext>();
-                    if (!dbContext.UserProfileReports.Any())
-                    {
-                        continue;
-                    }
-
-                    var reports = await dbContext.UserProfileReports.ToListAsync().ConfigureAwait(false);
-                    var restChannel = await guild.GetTextChannelAsync(reportChannelId.Value).ConfigureAwait(false);
-
-                    foreach (var report in reports)
-                    {
-                        var reportedUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportedUserUID).ConfigureAwait(false);
-                        var reportedUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportedUserUID).ConfigureAwait(false);
-                        if (reportedUserLodestone == null)
-                        {
-                            var reportedPrimary = await dbContext.Auth.SingleOrDefaultAsync(u => u.UserUID == report.ReportedUserUID && !string.IsNullOrEmpty(u.PrimaryUserUID)).ConfigureAwait(false);
-                            reportedUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == reportedPrimary.PrimaryUserUID).ConfigureAwait(false);
-                        }
-                        var reportingUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportingUserUID).ConfigureAwait(false);
-                        var reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportingUserUID).ConfigureAwait(false);
-                        if (reportingUserLodestone == null)
-                        {
-                            var reportingPrimary = await dbContext.Auth.SingleOrDefaultAsync(u => u.UserUID == report.ReportingUserUID && !string.IsNullOrEmpty(u.PrimaryUserUID)).ConfigureAwait(false);
-                            reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == reportingPrimary.PrimaryUserUID).ConfigureAwait(false);
-                        }
-                        var reportedUserProfile = await dbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
-                        if (reportedUserProfile is null)
-                        {
-                            reportedUserProfile = new UserProfileData(){ UserUID = reportedUser.UID, Base64ProfileImage = null, UserDescription = null, IsNSFW = false };
-                            dbContext.UserProfileData.Add(reportedUserProfile);
-                            await dbContext.SaveChangesAsync().ConfigureAwait(false);
-                        }
-                        EmbedBuilder eb = new();
-                        eb.WithTitle("Mare Report");
-
-                        StringBuilder reportedUserSb = new();
-                        StringBuilder reportingUserSb = new();
-                        reportedUserSb.Append(reportedUser.UID);
-                        reportingUserSb.Append(reportingUser.UID);
-                        if (reportedUserLodestone != null)
-                        {
-                            reportedUserSb.AppendLine($" (<@{reportedUserLodestone.DiscordId}>)");
-                        }
-                        if (reportingUserLodestone != null)
-                        {
-                            reportingUserSb.AppendLine($" (<@{reportingUserLodestone.DiscordId}>)");
-                        }
-                        eb.AddField("Reported User", reportedUserSb.ToString());
-                        eb.AddField("Reporting User", reportingUserSb.ToString());
-                        eb.AddField("Report Time", $"<t:{new DateTimeOffset(report.ReportDate).ToUnixTimeSeconds()}:f>");
-                        eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
-                        eb.AddField("Reported User Profile", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
-                        eb.AddField("Profile is NSFW", reportedUserProfile.IsNSFW ? "Yes" : "No");
-
-                        var cb = new ComponentBuilder();
-                        cb.WithButton("Dismiss Report", customId: $"mare-report-button-dismiss-{reportedUser.UID}", style: ButtonStyle.Primary);
-                        //cb.WithButton("Ban profile", customId: $"mare-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
-                        cb.WithButton("Ban User", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
-                        cb.WithButton("Dismiss & Ban Reporter", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
-                        cb.WithButton("Ban Both", customId: $"mare-report-button-banboth-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
-
-
-                        RestUserMessage msg = null;
-                        if (!string.IsNullOrEmpty(reportedUserProfile.Base64ProfileImage))
-                        {
-                            var fileName = reportedUser.UID + "_profile_" + Guid.NewGuid().ToString("N") + ".png";
-                            eb.WithImageUrl($"attachment://{fileName}");
-                            using MemoryStream ms = new(Convert.FromBase64String(reportedUserProfile.Base64ProfileImage));
-                            msg = await restChannel.SendFileAsync(ms, fileName, "User Report", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            msg = await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
-                        }
-
-                        var thread = await restChannel.CreateThreadAsync(
-                            type: ThreadType.PrivateThread,
-                            name: $"Report: {reportingUser.UID} -> {reportedUser.UID}",
-                            invitable: true,
-                            autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
-
-                        dbContext.Remove(report);
-
-                        await thread.SendMessageAsync($"Both parties <@{reportingUserLodestone.DiscordId}> <@{reportedUserLodestone.DiscordId}> please provide relevant information within 72 hours for <@&1301329024680857692> to review.").ConfigureAwait(false);
-                    }
-
-                    await dbContext.SaveChangesAsync().ConfigureAwait(false);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to process reports");
-            }
-        }
     }
 
     private async Task RemoveUnregisteredUsers(CancellationToken token)
@@ -724,9 +523,234 @@ internal class DiscordBot : IHostedService
             var endPoint = _connectionMultiplexer.GetEndPoints().First();
             var onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "UID:*").CountAsync().ConfigureAwait(false);
 
-            _logger.LogDebug("Users online: " + onlineUsers);
-            await _discordClient.SetActivityAsync(new Game(onlineUsers + " XIV Sync users online")).ConfigureAwait(false);
+            _logger.LogInformation("Users online: " + onlineUsers);
+            await _discordClient.SetActivityAsync(new Game("XIVSync for " + onlineUsers + " Users")).ConfigureAwait(false);
             await Task.Delay(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+        }
+    }
+
+    // ===== Report queue & moderation =====
+
+    private async Task ButtonExecutedHandler(SocketMessageComponent arg)
+    {
+        var id = arg.Data.CustomId;
+        if (!id.StartsWith("mare-report-button", StringComparison.Ordinal)) return;
+
+        var userId = arg.User.Id;
+        using var dbContext = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
+        var user = await dbContext.LodeStoneAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == userId).ConfigureAwait(false);
+
+        if (user == null || (!user.User.IsModerator && !user.User.IsAdmin))
+        {
+            EmbedBuilder eb = new();
+            eb.WithTitle($"Insufficient Permission");
+            eb.WithDescription($"<@{userId}>: you are not allowed to handle reports");
+            await arg.RespondAsync(embed: eb.Build(), ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        id = id.Remove(0, "mare-report-button-".Length);
+        var split = id.Split('-', StringSplitOptions.RemoveEmptyEntries);
+
+        var profile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+
+        var embed = arg.Message.Embeds.First();
+        var builder = embed.ToEmbedBuilder();
+        var otherPairs = await dbContext.ClientPairs.Where(p => p.UserUID == split[1]).Select(p => p.OtherUserUID).ToListAsync().ConfigureAwait(false);
+
+        switch (split[0])
+        {
+            case "dismiss":
+                builder.AddField("Decision", $"Report was dismissed by <@{userId}>");
+                builder.WithColor(Color.Green);
+                profile.FlaggedForReport = false;
+                await SendMessageToClients("A report against you has been dismissed.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
+                break;
+
+            case "banreporting":
+                builder.AddField("Decision", $"Report was dismissed by <@{userId}>, reporter banned");
+                builder.WithColor(Color.DarkGreen);
+                profile.FlaggedForReport = false;
+                var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
+                reportingUser.MarkForBan = true;
+                var regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
+                BanAuth(dbContext, regReporting);
+                await SendMessageToClients("A report against you has been dismissed.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
+                break;
+
+            case "banuser":
+                builder.AddField("Decision", $"User banned by <@{userId}>");
+                builder.WithColor(Color.DarkRed);
+                var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+                offendingUser.MarkForBan = true;
+                profile.Base64ProfileImage = null;
+                profile.UserDescription = null;
+                profile.ProfileDisabled = true;
+                var reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
+                BanAuth(dbContext, reg);
+                await SendMessageToClients("Due to a report against you, your account will be banned. If you believe this is in error, please contact moderators.", MessageSeverity.Warning, split[1]).ConfigureAwait(false);
+                break;
+
+            case "banboth":
+                builder.AddField("Decision", $"Both users banned by <@{userId}>");
+                builder.WithColor(Color.DarkRed);
+                offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+                offendingUser.MarkForBan = true;
+                profile.Base64ProfileImage = null;
+                profile.UserDescription = null;
+                profile.ProfileDisabled = true;
+                reg = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == offendingUser.UserUID || u.User.UID == offendingUser.PrimaryUserUID).ConfigureAwait(false);
+                BanAuth(dbContext, reg);
+
+                profile.FlaggedForReport = false;
+                reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
+                reportingUser.MarkForBan = true;
+                regReporting = await dbContext.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.User.UID == reportingUser.UserUID || u.User.UID == reportingUser.PrimaryUserUID).ConfigureAwait(false);
+                BanAuth(dbContext, regReporting);
+                break;
+        }
+
+        await dbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        await arg.Message.ModifyAsync(msg =>
+        {
+            msg.Content = arg.Message.Content;
+            msg.Components = null;
+            msg.Embed = new Optional<Embed>(builder.Build());
+        }).ConfigureAwait(false);
+    }
+
+    private void BanAuth(MareDbContext dbContext, LodeStoneAuth lodeStoneAuth)
+    {
+        if (!dbContext.BannedRegistrations.Any(x => x.DiscordIdOrLodestoneAuth == lodeStoneAuth.HashedLodestoneId))
+        {
+            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.HashedLodestoneId
+            });
+        }
+        if (!dbContext.BannedRegistrations.Any(x => x.DiscordIdOrLodestoneAuth == lodeStoneAuth.DiscordId.ToString()))
+        {
+            dbContext.BannedRegistrations.Add(new MareSynchronosShared.Models.BannedRegistrations()
+            {
+                DiscordIdOrLodestoneAuth = lodeStoneAuth.DiscordId.ToString()
+            });
+        }
+    }
+
+    private async Task ProcessReportsQueue()
+    {
+        var guild = (await _discordClient.Rest.GetGuildsAsync()).First();
+
+        _processReportQueueCts?.Cancel();
+        _processReportQueueCts?.Dispose();
+        _processReportQueueCts = new();
+        var token = _processReportQueueCts.Token;
+        while (!token.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+
+            if (_discordClient.ConnectionState != ConnectionState.Connected) continue;
+            var reportChannelId = _configurationService.GetValue<ulong?>(nameof(ServicesConfiguration.DiscordChannelForReports));
+            if (reportChannelId == null) continue;
+
+            try
+            {
+                using (var scope = _services.CreateScope())
+                {
+                    _logger.LogInformation("Checking for Profile Reports");
+                    var dbContext = scope.ServiceProvider.GetRequiredService<MareDbContext>();
+                    if (!dbContext.UserProfileReports.Any())
+                    {
+                        continue;
+                    }
+
+                    var reports = await dbContext.UserProfileReports.ToListAsync().ConfigureAwait(false);
+                    var restChannel = await guild.GetTextChannelAsync(reportChannelId.Value).ConfigureAwait(false);
+
+                    foreach (var report in reports)
+                    {
+                        var reportedUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportedUserUID).ConfigureAwait(false);
+                        var reportedUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportedUserUID).ConfigureAwait(false);
+                        if (reportedUserLodestone == null)
+                        {
+                            var reportedPrimary = await dbContext.Auth.SingleOrDefaultAsync(u => u.UserUID == report.ReportedUserUID && !string.IsNullOrEmpty(u.PrimaryUserUID)).ConfigureAwait(false);
+                            reportedUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == reportedPrimary.PrimaryUserUID).ConfigureAwait(false);
+                        }
+                        var reportingUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportingUserUID).ConfigureAwait(false);
+                        var reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportingUserUID).ConfigureAwait(false);
+                        if (reportingUserLodestone == null)
+                        {
+                            var reportingPrimary = await dbContext.Auth.SingleOrDefaultAsync(u => u.UserUID == report.ReportingUserUID && !string.IsNullOrEmpty(u.PrimaryUserUID)).ConfigureAwait(false);
+                            reportingUserLodestone = await dbContext.LodeStoneAuth.SingleOrDefaultAsync(u => u.User.UID == reportingPrimary.PrimaryUserUID).ConfigureAwait(false);
+                        }
+                        var reportedUserProfile = await dbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
+                        if (reportedUserProfile is null)
+                        {
+                            reportedUserProfile = new UserProfileData() { UserUID = reportedUser.UID, Base64ProfileImage = null, UserDescription = null, IsNSFW = false };
+                            dbContext.UserProfileData.Add(reportedUserProfile);
+                            await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                        }
+
+                        EmbedBuilder eb = new();
+                        eb.WithTitle("Mare Report");
+
+                        StringBuilder reportedUserSb = new();
+                        StringBuilder reportingUserSb = new();
+                        reportedUserSb.Append(reportedUser.UID);
+                        reportingUserSb.Append(reportingUser.UID);
+                        if (reportedUserLodestone != null)
+                        {
+                            reportedUserSb.AppendLine($" (<@{reportedUserLodestone.DiscordId}>)");
+                        }
+                        if (reportingUserLodestone != null)
+                        {
+                            reportingUserSb.AppendLine($" (<@{reportingUserLodestone.DiscordId}>)");
+                        }
+                        eb.AddField("Reported User", reportedUserSb.ToString());
+                        eb.AddField("Reporting User", reportingUserSb.ToString());
+                        eb.AddField("Reported At", $"<t:{new DateTimeOffset(report.ReportDate).ToUnixTimeSeconds()}:f>");
+                        eb.AddField("Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
+                        eb.AddField("Profile Text", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
+                        eb.AddField("Profile NSFW", reportedUserProfile.IsNSFW ? "Yes" : "No");
+
+                        var cb = new ComponentBuilder();
+                        cb.WithButton("Dismiss", customId: $"mare-report-button-dismiss-{reportedUser.UID}", style: ButtonStyle.Primary);
+                        cb.WithButton("Ban user", customId: $"mare-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("Dismiss & Ban reporter", customId: $"mare-report-button-banreporting-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("Ban both", customId: $"mare-report-button-banboth-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+
+                        RestUserMessage msg = null;
+                        if (!string.IsNullOrEmpty(reportedUserProfile.Base64ProfileImage))
+                        {
+                            var fileName = reportedUser.UID + "_profile_" + Guid.NewGuid().ToString("N") + ".png";
+                            eb.WithImageUrl($"attachment://{fileName}");
+                            using MemoryStream ms = new(Convert.FromBase64String(reportedUserProfile.Base64ProfileImage));
+                            msg = await restChannel.SendFileAsync(ms, fileName, "User Report", embed: eb.Build(), components: cb.Build(), isSpoiler: true).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            msg = await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
+                        }
+
+                        var thread = await restChannel.CreateThreadAsync(
+                            type: ThreadType.PrivateThread,
+                            name: $"Report: {reportingUser.UID} -> {reportedUser.UID}",
+                            invitable: true,
+                            autoArchiveDuration: ThreadArchiveDuration.ThreeDays).ConfigureAwait(false);
+
+                        dbContext.Remove(report);
+
+                        await thread.SendMessageAsync($"Both parties <@{reportingUserLodestone?.DiscordId}> <@{reportedUserLodestone?.DiscordId}> please provide evidence within 72h for <@&1301329024680857692> to review.").ConfigureAwait(false);
+                    }
+
+                    await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to process reports");
+            }
         }
     }
 
@@ -736,14 +760,12 @@ internal class DiscordBot : IHostedService
         {
             using HttpClient c = new HttpClient();
             c.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
-            await c.PostAsJsonAsync(new Uri(_configurationService.GetValue<Uri>
-                (nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
-                .ConfigureAwait(false);
+            await c.PostAsJsonAsync(new Uri(_configurationService.GetValue<Uri>(nameof(ServicesConfiguration.MainServerAddress)), "/msgc/sendMessage"),
+                new ClientMessage(messageType, message, uid ?? string.Empty)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send message: ");
+            _logger.LogError(ex, "Failed to send message to client(s): ");
         }
     }
-
 }

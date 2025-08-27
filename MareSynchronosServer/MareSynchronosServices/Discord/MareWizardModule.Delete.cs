@@ -2,6 +2,7 @@
 using Discord;
 using MareSynchronosShared.Utils;
 using MareSynchronosShared.Utils.Configuration;
+using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 
 namespace MareSynchronosServices.Discord;
@@ -17,12 +18,12 @@ public partial class MareWizardModule
 
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
-        eb.WithTitle("Delete账号");
-        eb.WithDescription("你可以在此Delete你的主要或者Secondary UID。" + Environment.NewLine + Environment.NewLine
-            + "__注意: Delete你的主要 UID也会同时Delete所有的Secondary UID。__" + Environment.NewLine + Environment.NewLine
-            + "- 1️⃣ 是你的主要账号/UID" + Environment.NewLine
-            + "- 2️⃣ 是你所有的Secondary UID" + Environment.NewLine
-            + "如果你在使用Vanity UID的话，原始的UID会在账号选项的第二行显示。");
+        eb.WithTitle("Delete Account");
+        eb.WithDescription("You can delete your primary or secondary UIDs here." + Environment.NewLine + Environment.NewLine
+            + "__Note: deleting your primary UID will delete all associated secondary UIDs as well.__" + Environment.NewLine + Environment.NewLine
+            + "- 1️⃣ is your primary account/UID" + Environment.NewLine
+            + "- 2️⃣ are all your secondary accounts/UIDs" + Environment.NewLine
+            + "If you are using Vanity UIDs the original UID is displayed in the second line of the account selection.");
         eb.WithColor(Color.Blue);
 
         ComponentBuilder cb = new();
@@ -41,11 +42,11 @@ public partial class MareWizardModule
         using var mareDb = await GetDbContext().ConfigureAwait(false);
         bool isPrimary = mareDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID == null;
         EmbedBuilder eb = new();
-        eb.WithTitle($"你确定要Delete {uid} 吗？");
-        eb.WithDescription($"此操作不可逆转。你所有的配对，加入的同步贝，储存在 {uid} 账号上所有的信息都会被" +
-            $"不可逆的Delete。" +
+        eb.WithTitle($"Are you sure you want to delete {uid}?");
+        eb.WithDescription($"This operation is irreversible. All your pairs, joined syncshells and information stored on the service for {uid} will be " +
+            $"irrevocably deleted." +
             (isPrimary ? (Environment.NewLine + Environment.NewLine +
-            "⚠️ **你即将Delete一个主要UID，所有的Secondary UID也会被同时Delete。** ⚠️") : string.Empty));
+            "⚠️ **You are about to delete a Primary UID, all attached Secondary UIDs and their information will be deleted as well.** ⚠️") : string.Empty));
         eb.WithColor(Color.Purple);
         ComponentBuilder cb = new();
         cb.WithButton("Cancel", "wizard-delete", emote: new Emoji("❌"));
@@ -75,12 +76,12 @@ public partial class MareWizardModule
             if (!string.Equals("DELETE", modal.Delete, StringComparison.Ordinal))
             {
                 EmbedBuilder eb = new();
-                eb.WithTitle("确认不正确");
-                eb.WithDescription($"你输入了 {modal.Delete} 但是要求的是 DELETE。请重新尝试并输入 DELETE 来确认。");
+                eb.WithTitle("Did not confirm properly");
+                eb.WithDescription($"You entered {modal.Delete} but requested was DELETE. Please try again and enter DELETE to confirm.");
                 eb.WithColor(Color.Red);
                 ComponentBuilder cb = new();
                 cb.WithButton("Cancel", "wizard-delete", emote: new Emoji("❌"));
-                cb.WithButton("重试", "wizard-delete-confirm:" + uid, emote: new Emoji("🔁"));
+                cb.WithButton("Retry", "wizard-delete-confirm:" + uid, emote: new Emoji("🔁"));
 
                 await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
             }
@@ -94,7 +95,7 @@ public partial class MareWizardModule
                 await SharedDbFunctions.PurgeUser(_logger, user, db, maxGroupsByUser).ConfigureAwait(false);
 
                 EmbedBuilder eb = new();
-                eb.WithTitle($"账号 {uid} 成功Delete");
+                eb.WithTitle($"Account {uid} successfully deleted");
                 eb.WithColor(Color.Green);
                 ComponentBuilder cb = new();
                 AddHome(cb);

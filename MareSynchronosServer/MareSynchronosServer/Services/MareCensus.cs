@@ -139,8 +139,8 @@ public class MareCensus : IHostedService
 
         _logger.LogInformation("Census:Init data");
 
-        _gender[0] = "Male";
-        _gender[1] = "Female";
+        _gender[0] = "男";
+        _gender[1] = "女";
         // _logger.LogInformation("Loading XIVAPI data");
 
         // using HttpClient client = new HttpClient();

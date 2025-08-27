@@ -1,6 +1,6 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 as BUILD
+FROM mcr.microsoft.com/dotnet/sdk:8.0 as BUILD
 
-RUN git clone --recurse-submodules https://github.com/Penumbra-Sync/server
+RUN git clone --recurse-submodules https://github.com/xivsync/server
 
 WORKDIR /server/MareSynchronosServer/MareSynchronosStaticFilesServer/
 
@@ -10,7 +10,7 @@ RUN dotnet publish \
         --output=/MareSynchronosStaticFilesServer \
         MareSynchronosStaticFilesServer.csproj
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 
 RUN adduser \
         --disabled-password \
